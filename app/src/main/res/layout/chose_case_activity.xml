@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/linear_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="44dp"
+        android:text="LinearLayout"
+        android:textColor="@color/black"
+        android:textSize="25dp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+    <Button
+        android:id="@+id/show_linear_appcompat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="5dp"
+        android:text="COMPAT"
+        app:layout_constraintEnd_toStartOf="@+id/show_linear_simple"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/linear_title"/>
+
+    <Button
+        android:id="@+id/show_linear_simple"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SIMPLE"
+        android:layout_marginStart="5dp"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintBottom_toBottomOf="@+id/show_linear_appcompat"
+        app:layout_constraintStart_toEndOf="@+id/show_linear_appcompat"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/relative_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RelativeLayout"
+        android:textColor="@color/black"
+        android:textSize="25dp"
+        android:textStyle="bold"
+        android:layout_marginTop="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/show_linear_simple"/>
+
+    <Button
+        android:id="@+id/show_relative_appcompat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="5dp"
+        android:text="COMPAT"
+        app:layout_constraintEnd_toStartOf="@+id/show_relative_simple"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/relative_title"/>
+
+    <Button
+        android:id="@+id/show_relative_simple"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SIMPLE"
+        android:layout_marginStart="5dp"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintBottom_toBottomOf="@+id/show_relative_appcompat"
+        app:layout_constraintStart_toEndOf="@+id/show_relative_appcompat"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/constraint_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ConstraintLayout"
+        android:textColor="@color/black"
+        android:textSize="25dp"
+        android:textStyle="bold"
+        android:layout_marginTop="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/show_relative_appcompat"/>
+
+    <Button
+        android:id="@+id/show_constraint_appcompat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="5dp"
+        android:text="COMPAT"
+        app:layout_constraintEnd_toStartOf="@+id/show_constraint_simple"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/constraint_title"/>
+
+    <Button
+        android:id="@+id/show_constraint_simple"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SIMPLE"
+        android:layout_marginStart="5dp"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintBottom_toBottomOf="@+id/show_constraint_appcompat"
+        app:layout_constraintStart_toEndOf="@+id/show_constraint_appcompat"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="100dp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

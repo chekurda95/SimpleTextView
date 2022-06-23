@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/item_linear"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:SimpleTextView_style="@style/TitleStyle"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/first_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        app:SimpleTextView_style="@style/FirstLineStyle"
+        app:layout_constraintTop_toBottomOf="@+id/title"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/second_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:SimpleTextView_style="@style/SecondLineStyle"
+        app:layout_constraintTop_toBottomOf="@+id/first_line"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

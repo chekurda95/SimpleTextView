@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/item_linear"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:SimpleTextView_style="@style/TitleStyle"/>
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/first_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/title"
+        app:SimpleTextView_style="@style/FirstLineStyle"/>
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:id="@+id/second_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/first_line"
+        app:SimpleTextView_style="@style/SecondLineStyle"/>
+
+</RelativeLayout>
