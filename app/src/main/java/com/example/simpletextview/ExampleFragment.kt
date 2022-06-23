@@ -9,6 +9,9 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.simpletextview.ExampleType.*
+import com.example.simpletextview.databinding.ItemBindingAppCompatBinding
+import com.example.simpletextview.databinding.ItemBindingSimpleBinding
+import com.example.simpletextview.example.DataVM
 
 class ExampleFragment : Fragment() {
 
@@ -41,7 +44,9 @@ enum class ExampleType(val title: String) {
     RELATIVE_APP_COMPAT("Relative - ACTextView"),
     RELATIVE_SIMPLE("Relative - SimpleTextView"),
     CONSTRAINT_APP_COMPAT("Constraint - ACTextView"),
-    CONSTRAINT_SIMPLE("Constraint - SimpleTextView")
+    CONSTRAINT_SIMPLE("Constraint - SimpleTextView"),
+    BINDING_COMPAT("Binding - ACTextView"),
+    BINDING_SIMPLE("Binding - SimpleTextView")
 }
 
 class Adapter(private val type: ExampleType) : RecyclerView.Adapter<AnyViewHolder>() {
@@ -60,6 +65,8 @@ class Adapter(private val type: ExampleType) : RecyclerView.Adapter<AnyViewHolde
             RELATIVE_SIMPLE -> inflater.inflate(R.layout.item_relative_simple, parent, false)
             CONSTRAINT_APP_COMPAT -> inflater.inflate(R.layout.item_constraint_app_compat, parent, false)
             CONSTRAINT_SIMPLE -> inflater.inflate(R.layout.item_constraint_simple, parent, false)
+            BINDING_COMPAT -> ItemBindingAppCompatBinding.inflate(inflater, parent, false).apply { viewModel = DataVM.instance(parent.resources) }.root
+            BINDING_SIMPLE -> ItemBindingSimpleBinding.inflate(inflater, parent, false).apply { viewModel = DataVM.instance(parent.resources) }.root
         }
     }
 

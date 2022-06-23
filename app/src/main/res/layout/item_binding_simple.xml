@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <data>
+
+        <variable
+            name="viewModel"
+            type="com.example.simpletextview.example.DataVM"/>
+
+    </data>
+
+    <com.example.simpletextview.simple_tv.SimpleTextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@{viewModel.text}"
+        android:textColor="@{viewModel.textColor}"
+        android:textSize="@{viewModel.textSize}"
+        android:padding="@{viewModel.padding}"
+        android:maxLines="@{viewModel.maxLines}"/>
+
+</layout>

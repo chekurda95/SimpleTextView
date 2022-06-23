@@ -113,6 +113,41 @@
         app:layout_constraintStart_toEndOf="@+id/show_constraint_appcompat"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/data_binding_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Data binding"
+        android:textColor="@color/black"
+        android:textSize="25dp"
+        android:textStyle="bold"
+        android:layout_marginTop="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/show_constraint_appcompat"/>
+
+    <Button
+        android:id="@+id/show_binding_appcompat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="5dp"
+        android:text="COMPAT"
+        app:layout_constraintEnd_toStartOf="@+id/show_binding_simple"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/data_binding_title"/>
+
+    <Button
+        android:id="@+id/show_binding_simple"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SIMPLE"
+        android:layout_marginStart="5dp"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintBottom_toBottomOf="@+id/show_binding_appcompat"
+        app:layout_constraintStart_toEndOf="@+id/show_binding_appcompat"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"

@@ -71,6 +71,13 @@ open class SimpleTextView @JvmOverloads constructor(
             }
         }
 
+    var textSize: Float
+        get() = textLayout.textPaint.textSize
+        set(value) {
+            val isChanged = textLayout.configure { paint.textSize = value }
+            if (isChanged) safeRequestLayout()
+        }
+
     /** @SelfDocumented */
     var textColors: ColorStateList = ColorStateList.valueOf(Color.WHITE)
         private set
@@ -90,13 +97,18 @@ open class SimpleTextView @JvmOverloads constructor(
     private val textLayout: TextLayout
 
     init {
-        context.withStyledAttributes(attrs, intArrayOf(android.R.attr.id), defStyleAttr, defStyleRes) {
-            id = getResourceId(0, NO_ID)
-        }
+        val attributes = intArrayOf(
+            android.R.attr.id,
+            android.R.attr.tag,
+            R.attr.SimpleTextView_style
+        )
         var styleRes: Int = defStyleRes
-        context.withStyledAttributes(attrs, intArrayOf(R.attr.SimpleTextView_style), defStyleAttr, defStyleRes) {
-            styleRes = getResourceId(0, styleRes)
+        context.withStyledAttributes(attrs, attributes, defStyleAttr, defStyleRes) {
+            id = getResourceId(attributes.indexOf(android.R.attr.id), NO_ID)
+            tag = getText(attributes.indexOf(android.R.attr.tag))
+            styleRes = getResourceId(attributes.indexOf(R.attr.SimpleTextView_style), styleRes)
         }
+
         textLayout = TextLayout.createTextLayoutByStyle(
             context,
             getTextStyle(defStyleAttr, styleRes),
