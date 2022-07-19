@@ -289,7 +289,7 @@ abstract class CanvasStylesProvider {
     ): STYLE_PARAMS = cachedCollection.takeIf { isCacheEnabled }
         ?.get(styleKey)
         ?: getStyle().also {
-            if (isCacheEnabled) cachedCollection[styleKey] = it
+            if (isCacheEnabled && styleKey.styleRes != 0) cachedCollection[styleKey] = it
         }
 }
 

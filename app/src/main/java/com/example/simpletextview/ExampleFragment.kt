@@ -56,13 +56,21 @@ class Adapter(private val type: ExampleType) : RecyclerView.Adapter<AnyViewHolde
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AnyViewHolder =
         AnyViewHolder(getView(parent))
 
+    private var counter: Int = 0
+
     private fun getView(parent: ViewGroup): View {
         val inflater = LayoutInflater.from(parent.context)
         return when (type) {
             LINEAR_APP_COMPAT -> inflater.inflate(R.layout.item_linear_app_compat, parent, false)
             LINEAR_SIMPLE -> inflater.inflate(R.layout.item_linear_simple, parent, false)
             RELATIVE_APP_COMPAT -> inflater.inflate(R.layout.item_relative_app_compat, parent, false)
-            RELATIVE_SIMPLE -> inflater.inflate(R.layout.item_relative_simple, parent, false)
+            RELATIVE_SIMPLE -> {
+                if (counter++ % 2 == 0) {
+                    inflater.inflate(R.layout.item_relative_simple, parent, false)
+                } else {
+                    inflater.inflate(R.layout.item_relative_simple_2, parent, false)
+                }
+            }
             CONSTRAINT_APP_COMPAT -> inflater.inflate(R.layout.item_constraint_app_compat, parent, false)
             CONSTRAINT_SIMPLE -> inflater.inflate(R.layout.item_constraint_simple, parent, false)
             BINDING_COMPAT -> ItemBindingAppCompatBinding.inflate(inflater, parent, false).apply { viewModel = DataVM.instance(parent.resources) }.root
