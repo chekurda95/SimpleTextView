@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
             ).also(::showResult)
         }
 
-        findViewById<View>(R.id.simple_text_view).setOnClickListener {
+        findViewById<View>(R.id.show_fragment_with_analytic).setOnClickListener {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
                 ExecutionTimeAnalytic.Execution("Inflate") {

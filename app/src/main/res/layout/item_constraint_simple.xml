@@ -7,27 +7,27 @@
     android:layout_height="wrap_content">
 
     <com.example.simpletextview.simple_tv.SimpleTextView
+        style="@style/TitleStyle"
         android:id="@+id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:SimpleTextView_style="@style/TitleStyle"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"/>
 
     <com.example.simpletextview.simple_tv.SimpleTextView
+        style="@style/FirstLineStyle"
         android:id="@+id/first_line"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        app:SimpleTextView_style="@style/FirstLineStyle"
         app:layout_constraintTop_toBottomOf="@+id/title"
         app:layout_constraintStart_toStartOf="parent"/>
 
     <com.example.simpletextview.simple_tv.SimpleTextView
+        style="@style/SecondLineStyle"
         android:id="@+id/second_line"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:SimpleTextView_style="@style/SecondLineStyle"
         app:layout_constraintTop_toBottomOf="@+id/first_line"
         app:layout_constraintStart_toStartOf="parent"/>
 

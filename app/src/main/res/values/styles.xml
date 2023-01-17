@@ -18,11 +18,32 @@
         <item name="android:textColor">@color/black</item>
         <item name="android:paddingStart">5dp</item>
         <item name="android:paddingEnd">5dp</item>
-        <item name="android:paddingTop">1dp</item>
-        <item name="android:paddingBottom">1dp</item>
-        <item name="android:maxLines">1</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:maxLines">10</item>
         <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/ic_launcher_background</item>
+        <item name="android:enabled">true</item>
+        <item name="android:visibility">visible</item>
+        <item name="android:fadingEdge">horizontal</item>
     </style>
+
+   <!-- <style name="NewTitleStyle">
+        <item name="SimpleTextView_text">Title string</item>
+        <item name="SimpleTextView_textSize">100px</item>
+        <item name="SimpleTextView_textColor">@color/black</item>
+        <item name="SimpleTextView_maxLines">10</item>
+        <item name="SimpleTextView_includeFontPadding">false</item>
+        <item name="SimpleTextView_gravity">center</item>
+        <item name="SimpleTextView_ellipsize">end</item>
+        <item name="android:visibility">visible</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">30dp</item>
+        <item name="android:background">@drawable/ic_launcher_background</item>
+    </style>-->
 
     <style name="FirstLineStyle">
         <item name="android:text">First line string</item>
@@ -34,6 +55,12 @@
         <item name="android:paddingBottom">1dp</item>
         <item name="android:maxLines">1</item>
         <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/ic_launcher_foreground</item>
+        <item name="android:enabled">true</item>
+        <item name="android:visibility">visible</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fadingEdge">horizontal</item>
     </style>
 
     <style name="SecondLineStyle">
@@ -46,5 +73,24 @@
         <item name="android:paddingBottom">3dp</item>
         <item name="android:maxLines">1</item>
         <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/ic_launcher_background</item>
+        <item name="android:enabled">true</item>
+        <item name="android:visibility">visible</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fadingEdge">horizontal</item>
     </style>
+
+    <style name="EmptyTitleStyle">
+        <item name="android:text">Title string</item>
+    </style>
+
+    <style name="EmptyFirstLineStyle">
+        <item name="android:text">First line string</item>
+    </style>
+
+    <style name="EmptySecondLineStyle">
+        <item name="android:text">Second line string</item>
+    </style>
+
 </resources>

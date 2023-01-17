@@ -17,20 +17,20 @@
         android:layout_height="match_parent"
         android:background="@android:color/holo_blue_dark"/>
 
-    <androidx.appcompat.widget.AppCompatTextView
-        style="@style/SimpleTextViewStyle"
+    <com.example.simpletextview.simple_tv.TestTextView
+        style="@style/TitleStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"/>
 
-    <androidx.appcompat.widget.AppCompatTextView
-        style="@style/SimpleTextViewStyle"
+    <com.example.simpletextview.simple_tv.TestTextView
+        style="@style/FirstLineStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"/>
 
-    <androidx.appcompat.widget.AppCompatTextView
-        style="@style/SimpleTextViewStyle"
+    <com.example.simpletextview.simple_tv.TestTextView
+        style="@style/SecondLineStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"/>
