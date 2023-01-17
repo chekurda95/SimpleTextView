@@ -3,11 +3,13 @@ package com.example.simpletextview
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.content.ContextCompat
 import com.example.simpletextview.custom_tools.utils.ExecutionTimeAnalytic
 import com.example.simpletextview.custom_tools.utils.dp
 import com.example.simpletextview.simple_tv.SbisTextView
@@ -18,49 +20,61 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         val rootView = findViewById<ViewGroup>(R.id.root_view)
         val inflater = LayoutInflater.from(this)
-        val count = 1
+        val count = 20
 
         findViewById<View>(R.id.frameLayout).setOnClickListener {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
-                ExecutionTimeAnalytic.Execution("SimpleTextView") {
-                    inflater.inflate(R.layout.frame_layout_simple, rootView, false)
-                },
                 ExecutionTimeAnalytic.Execution("AppCompatTextView") {
                     inflater.inflate(R.layout.frame_layout_appcompat, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("TextView") {
+                    inflater.inflate(R.layout.frame_layout_text_view, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("SbisTextView") {
+                    inflater.inflate(R.layout.frame_layout_simple, rootView, false)
                 }
             ).also(::showResult)
         }
         findViewById<View>(R.id.relativeLayout).setOnClickListener {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
-                ExecutionTimeAnalytic.Execution("SimpleTextView") {
-                    inflater.inflate(R.layout.relative_layout_simple, rootView, false)
-                },
                 ExecutionTimeAnalytic.Execution("AppCompatTextView") {
                     inflater.inflate(R.layout.relative_layout_appcompat, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("TextView") {
+                    inflater.inflate(R.layout.relative_layout_text_view, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("SbisTextView") {
+                    inflater.inflate(R.layout.relative_layout_simple, rootView, false)
                 }
             ).also(::showResult)
         }
         findViewById<View>(R.id.linearLayout).setOnClickListener {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
-                ExecutionTimeAnalytic.Execution("SimpleTextView") {
-                    inflater.inflate(R.layout.linear_layout_simple, rootView, false)
-                },
                 ExecutionTimeAnalytic.Execution("AppCompatTextView") {
                     inflater.inflate(R.layout.linear_layout_appcompat, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("TextView") {
+                    inflater.inflate(R.layout.linear_layout_text_view, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("SbisTextView") {
+                    inflater.inflate(R.layout.linear_layout_simple, rootView, false)
                 }
             ).also(::showResult)
         }
         findViewById<View>(R.id.constraintLayout).setOnClickListener {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
-                ExecutionTimeAnalytic.Execution("SimpleTextView") {
-                    inflater.inflate(R.layout.constraint_layout_simple, rootView, false)
-                },
                 ExecutionTimeAnalytic.Execution("AppCompatTextView") {
                     inflater.inflate(R.layout.constraint_layout_appcompat, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("TextView") {
+                    inflater.inflate(R.layout.constraint_layout_text_view, rootView, false)
+                },
+                ExecutionTimeAnalytic.Execution("SbisTextView") {
+                    inflater.inflate(R.layout.constraint_layout_simple, rootView, false)
                 }
             ).also(::showResult)
         }
@@ -76,19 +90,22 @@ class MainActivity : AppCompatActivity() {
                 },
                 ExecutionTimeAnalytic.Execution("Program") {
                     SbisTextView(this).apply {
-                        text = "SimpleTextView Some Text"
-                        paint.textSize = dp(20).toFloat()
-                        paint.color = Color.BLACK
+                        text = "SbisTextView Some Text"
+                        setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
+                        setTextColor(ContextCompat.getColor(context, R.color.black))
                         setPadding(dp(1), dp(1), dp(1), dp(1))
+                        setBackgroundResource(R.drawable.ic_launcher_background)
                         maxLines = 1
                     }
                 },
                 ExecutionTimeAnalytic.Execution("Program") {
                     AppCompatTextView(this).apply {
                         text = "AppCompatTextView Some Text"
-                        paint.textSize = dp(20).toFloat()
-                        paint.color = Color.BLACK
+                        setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
+                        setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
+                        setTextColor(ContextCompat.getColor(context, R.color.black))
                         setPadding(dp(1), dp(1), dp(1), dp(1))
+                        setBackgroundResource(R.drawable.ic_launcher_background)
                         maxLines = 1
                     }
                 },
