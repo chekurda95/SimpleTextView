@@ -33,7 +33,6 @@ import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import org.apache.commons.lang3.StringUtils
 
-@Suppress("LeakingThis")
 open class SbisTextView : View, SbisTextViewApi {
 
     constructor(context: Context) : super(context)
@@ -41,17 +40,13 @@ open class SbisTextView : View, SbisTextViewApi {
     constructor(
         context: Context,
         attrs: AttributeSet? = null
-    ) : super(context, attrs, R.attr.sbisTextViewTheme, R.style.SbisTextViewDefaultTheme) {
-        obtainAttrs(attrs)
-    }
+    ) : this(context, attrs, R.attr.sbisTextViewTheme, R.style.SbisTextViewDefaultTheme)
 
     constructor(
         context: Context,
         attrs: AttributeSet? = null,
         @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
-    ) : super(context, attrs, defStyleAttr, R.style.SbisTextViewDefaultTheme) {
-        obtainAttrs(attrs, defStyleAttr)
-    }
+    ) : this(context, attrs, defStyleAttr, R.style.SbisTextViewDefaultTheme)
 
     constructor(
         context: Context,
@@ -151,8 +146,12 @@ open class SbisTextView : View, SbisTextViewApi {
             if (field == value) return
             field = value
             textLayout.configure { alignment = getLayoutAlignment() }
-            internalLayout()
-            invalidate()
+            if (!isGone && isAttachedToWindow) {
+                internalLayout()
+                invalidate()
+            } else {
+                safeRequestLayout()
+            }
         }
 
     override var typeface: Typeface?
@@ -492,9 +491,9 @@ open class SbisTextView : View, SbisTextViewApi {
                 .takeIf { it != NO_RESOURCE }
                 ?.let { ellipsize ->
                     when (ellipsize) {
+                        ELLIPSIZE_END -> TextUtils.TruncateAt.END
                         ELLIPSIZE_START -> TextUtils.TruncateAt.START
                         ELLIPSIZE_MIDDLE -> TextUtils.TruncateAt.MIDDLE
-                        ELLIPSIZE_END -> TextUtils.TruncateAt.END
                         ELLIPSIZE_MARQUEE -> TextUtils.TruncateAt.MARQUEE
                         else -> null
                     }
