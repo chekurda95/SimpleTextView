@@ -1,6 +1,8 @@
 package com.example.simpletextview.custom_tools.styles
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.TypedArray
 import android.graphics.Typeface
 import android.text.Layout
@@ -10,32 +12,50 @@ import android.view.Gravity
 import android.view.View
 import androidx.annotation.StyleRes
 import androidx.core.content.ContextCompat
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.res.ResourcesCompat.ID_NULL
 import androidx.core.content.withStyledAttributes
 import androidx.recyclerview.widget.RecyclerView
 import com.example.simpletextview.R
-import com.example.simpletextview.custom_tools.TextLayout
-import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider.Companion.paddingAttrs
-import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider.Companion.textAttrs
 import com.example.simpletextview.custom_tools.styles.StyleParams.PaddingStyle
 import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
 import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.utils.doOnDetachedFromWindow
+import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider.Companion.paddingAttrs
+import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider.Companion.textAttrs
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 /**
  * Поставщик моделей значений базовых атрибутов стилей текста и отступов.
  *
- * Класс содержит механику obtain`а ресурсов стилей с текстовыми атрибутами [textAttrs] и паддингами [paddingAttrs].
- * При активации работы кэша [isResourceCacheEnabled], кэширует ранее полученные атрибуты стилей для переиспользования.
- * Данная механика позволяет ускорить получение атрибутов xml стилей для ячеек списка ~ в 10 раз,
+ * Необходим для создания локального хранилища стилей. Данная механика позволяет
+ * ускорить получение атрибутов xml стилей для ячеек списка ~ в 10 раз,
  * что позволяет создавать разметки текстов [TextLayout] за 50 микросекунд против 300-1000
  * (значения примера для мощного девайса, индивидуальны для разных мощностей девайсов).
  *
+ * Класс содержит механику obtain`а ресурсов стилей с текстовыми атрибутами [textAttrs] и паддингами [paddingAttrs].
+ * При активации работы кэша [isResourceCacheEnabled], кэширует ранее полученные атрибуты стилей для переиспользования.
+ *
  * @see textStyleProvider
  * @see paddingStyleProvider
+ *
+ * Срок жизни хранилища определяется прикладником. Это может быть:
+ * - класс наследник, объект которого будет храниться на уровне адаптера/фрагмента/вью-модели.
+ * - companion object для кастомной View ячейки списка.
+ * Для очистки хранилища используйте метод [clearReferences].
+ *
+ * В качестве уникального ключа для стиля в кэше используется [StyleKey], который позволяет для одного и того
+ * ресурса стиля и атрибута задавать разные тэги [StyleKey.tag].
+ *
+ * Не рекомендуется использовать [CanvasStylesProvider] с кэшированием [isResourceCacheEnabled] в следующих случаях:
+ * - В виде companion object для кастомной View, которая является общим компонентом и может иметь разную стилизацию
+ * на разных участках в рамках одного приложения за счет переопределения значений атрибутов дефолтного стиля.
+ * В таком случае легко допустить ошибку получения неправильного стиля для [TextLayout], если на уровне View компонента
+ * не позаботиться об уникальности [StyleKey] для разных участков, или если при уходе из реестра не будет вызвал
+ * [CanvasStylesProvider.clearReferences].
+ * - В кастомных View, которые отображаются в единичном экзепляре на экране, например, в компоненте шапки.
+ * Без многократного создания View - Вы не получите никакого прироста производительности за счет кэширования.
  *
  * @author vv.chekurda
  */
@@ -61,6 +81,7 @@ abstract class CanvasStylesProvider {
             android.R.attr.paddingTop,
             android.R.attr.paddingEnd,
             android.R.attr.paddingBottom,
+            android.R.attr.padding,
             android.R.attr.fontFamily
         )
 
@@ -73,13 +94,14 @@ abstract class CanvasStylesProvider {
             android.R.attr.paddingTop,
             android.R.attr.paddingEnd,
             android.R.attr.paddingBottom,
-            android.R.attr.fontFamily
+            android.R.attr.padding
         )
 
         /**
          * Получить модель стиля текста [TextStyle] по ресурсу стиля [styleKey].
          * @see StyleKey
          */
+        @SuppressLint("BinaryOperationInTimber")
         fun obtainTextStyle(
             context: Context,
             styleKey: StyleKey
@@ -89,6 +111,7 @@ abstract class CanvasStylesProvider {
             var text: String? = null
             var textSize: Int? = null
             var color: Int? = null
+            var colorStateList: ColorStateList? = null
             var layoutWidth: Int? = null
             var gravity: Int? = null
             var ellipsize: Int? = null
@@ -105,12 +128,16 @@ abstract class CanvasStylesProvider {
                 text = getString(textAttrs.indexOf(android.R.attr.text)) ?: text
                 textSize = getDimensionPixelSize(textAttrs.indexOf(android.R.attr.textSize), NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-                color = getColor(textAttrs.indexOf(android.R.attr.textColor), NO_RESOURCE)
-                    .takeIf { it != NO_RESOURCE }
-                    ?: getResourceId(textAttrs.indexOf(android.R.attr.textColor), R.color.palette_color_black1)
-                        .let { ContextCompat.getColor(context, it) }
-                layoutWidth = getDimensionPixelSize(textAttrs.indexOf(android.R.attr.layout_width), NO_RESOURCE)
-                    .takeIf { it != NO_RESOURCE }
+                colorStateList = getColorStateList(textAttrs.indexOf(android.R.attr.textColor))
+                color = colorStateList?.defaultColor ?: ContextCompat.getColor(context, R.color.palette_color_black1)
+                layoutWidth = getLayoutDimension(textAttrs.indexOf(android.R.attr.layout_width), 0)
+                    .also {
+                        if (it < 0) Timber.e(
+                            "Unsupported layout_width value: $it. Use specific size, " +
+                                    "otherwise it will be ignored"
+                        )
+                    }
+                    .takeIf { it > 0 }
                 gravity = getInt(textAttrs.indexOf(android.R.attr.gravity), NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
                 ellipsize = getInt(textAttrs.indexOf(android.R.attr.ellipsize), NO_RESOURCE)
@@ -119,7 +146,9 @@ abstract class CanvasStylesProvider {
                     .takeIf { it != NO_RESOURCE }
                 typeface = getResourceId(textAttrs.indexOf(android.R.attr.fontFamily), NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-                    ?. let { ResourcesCompat.getFont(context, it) }
+                    ?.let {
+                        Typeface.DEFAULT//.getFont(context, it)
+                    }
 
                 val includeFontPadIndex = textAttrs.indexOf(android.R.attr.includeFontPadding)
                 includeFontPadding = if (hasValue(includeFontPadIndex)) {
@@ -141,6 +170,7 @@ abstract class CanvasStylesProvider {
                 text = text,
                 textSize = textSize?.toFloat(),
                 textColor = color,
+                colorStateList = colorStateList,
                 typeface = typeface,
                 layoutWidth = layoutWidth,
                 alignment = alignment,
@@ -183,6 +213,8 @@ abstract class CanvasStylesProvider {
                     defStyleAttr = styleKey.styleAttr,
                     defaultStyle = styleKey.styleRes
                 ).buildThemeRes()
+                    .takeIf { it != ID_NULL }
+                    ?: styleKey.styleRes
             } else {
                 styleKey.styleRes
             }
@@ -192,12 +224,13 @@ abstract class CanvasStylesProvider {
             attrs: IntArray,
             styleKey: StyleKey
         ): PaddingStyle = with(typedArray) {
+            val padding = getDimensionPixelSize(attrs.indexOf(android.R.attr.padding), 0)
             PaddingStyle(
                 styleKey = styleKey,
-                paddingStart = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingStart), 0),
-                paddingTop = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingTop), 0),
-                paddingEnd = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingEnd), 0),
-                paddingBottom = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingBottom), 0)
+                paddingStart = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingStart), padding),
+                paddingTop = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingTop), padding),
+                paddingEnd = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingEnd), padding),
+                paddingBottom = getDimensionPixelSize(attrs.indexOf(android.R.attr.paddingBottom), padding)
             )
         }
     }
@@ -289,7 +322,7 @@ abstract class CanvasStylesProvider {
     ): STYLE_PARAMS = cachedCollection.takeIf { isCacheEnabled }
         ?.get(styleKey)
         ?: getStyle().also {
-            if (isCacheEnabled && styleKey.styleRes != 0) cachedCollection[styleKey] = it
+            if (isCacheEnabled) cachedCollection[styleKey] = it
         }
 }
 

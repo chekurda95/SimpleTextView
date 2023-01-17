@@ -7,9 +7,12 @@ import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
 import android.text.Layout
 import android.text.Layout.Alignment
+import android.text.Spannable
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
+import android.text.style.AbsoluteSizeSpan
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
@@ -17,6 +20,7 @@ import android.view.MotionEvent.*
 import android.view.View
 import android.view.ViewConfiguration.getPressedStateDuration
 import androidx.annotation.AttrRes
+import androidx.annotation.FloatRange
 import androidx.annotation.IdRes
 import androidx.annotation.Px
 import androidx.annotation.StyleRes
@@ -35,8 +39,10 @@ import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
+import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import timber.log.Timber
 import java.lang.Integer.MAX_VALUE
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -63,7 +69,18 @@ import kotlin.math.roundToInt
  *
  * @author vv.chekurda
  */
-class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
+class TextLayout private constructor(
+    private val params: TextLayoutParams,
+    config: TextLayoutConfig? = null
+) : View.OnTouchListener {
+
+    /**
+     * @param config настройка параметров текстовой разметки.
+     * @see TextLayoutParams
+     */
+    constructor(config: TextLayoutConfig? = null) : this(TextLayoutParams(), config)
+
+    init { config?.invoke(params) }
 
     /**
      * Слушатель кликов по текстовой разметке.
@@ -125,10 +142,10 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
                 val style = styleProvider?.getStyleParams(context, styleKey)
                     ?: CanvasStylesProvider.obtainTextStyle(context, styleKey)
                 TextLayout {
-                    paint = TextPaint(ANTI_ALIAS_FLAG).also {
-                        it.textSize = style.textSize ?: it.textSize
-                        it.color = style.textColor ?: it.color
-                        it.typeface = style.typeface ?: it.typeface
+                    paint = SimpleTextPaint {
+                        textSize = style.textSize ?: textSize
+                        color = style.textColor ?: color
+                        typeface = style.typeface ?: typeface
                     }
                     text = style.text ?: text
                     layoutWidth = style.layoutWidth.takeIf { it != 0 } ?: layoutWidth
@@ -148,14 +165,9 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
                         }
                     }
                     postConfig?.invoke(this)
-                }
+                }.apply { colorStateList = style.colorStateList }
             } else TextLayout(postConfig)
     }
-
-    /**
-     * Параметры для создания текстовой разметки [TextLayout.layout].
-     */
-    private val params = TextLayoutParams()
 
     /**
      * Вспомогательный класс для обработки событий касаний по текстовой разметке.
@@ -198,24 +210,16 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
             textPos
         )
 
-    init {
-        config?.invoke(params)
-    }
-
-    /**
-     * Получить текстовую разметку.
-     * Имеет ленивую инициализацию.
-     */
-    private val layout: Layout
-        get() = cachedLayout
-            ?.takeIf { !isLayoutChanged }
-            ?: updateStaticLayout()
-
     /**
      * Текущая текстовая разметка.
      * Лениво инициализируется при первом обращении к [TextLayout.layout].
      */
     private var cachedLayout: Layout? = null
+
+    /**
+     * Признак необходимости затенения каря текста, когда он не помещается в рзметку
+     */
+    private var isFadeEdgeVisible: Boolean = false
 
     /**
      * Текущая ширина текста без учета оступов.
@@ -236,11 +240,29 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      */
     private var textPos = params.padding.start.toFloat() to params.padding.top.toFloat()
 
+    /**
+     * Прозрачность цвета краски текста.
+     */
+    private var textColorAlpha = textPaint.alpha
 
     /**
-     * Поворот текста вокруг центра на угол в градусах
+     * Минимальная высота текста по заданным [TextLayoutParams.minLines].
      */
-    var rotation = 0f
+    @get:Px
+    private val minHeightByLines: Int
+        get() {
+            val layoutHeight = when {
+                minLines <= 0 || !isVisible -> 0
+                minLines <= layout.lineCount -> layout.height
+                else -> {
+                    val lineHeight = with(params) {
+                        (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
+                    }
+                    layout.height + (minLines - layout.lineCount) * lineHeight
+                }
+            }
+            return layoutHeight + paddingTop + paddingBottom
+        }
 
     private val fadeMatrix by lazy { Matrix() }
 
@@ -250,22 +272,13 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         }
     }
 
-    var fadeEdgeSize = 0
-        set(value) {
-            field = value
-            fadeShader = createFadeShader(value)
-            configure {
-                ellipsize = null
-            }
-        }
+    private var fadeShader: Lazy<Shader>? = null
 
-    private var fadeShader: Lazy<Shader> = createFadeShader(fadeEdgeSize)
-
-    private fun createFadeShader(fadeSize: Int): Lazy<Shader> = lazy {
+    private fun createFadeShader(): Lazy<Shader> = lazy {
         LinearGradient(
             0f,
             0f,
-            fadeSize.toFloat(),
+            fadeEdgeSize.toFloat(),
             0f,
             Color.TRANSPARENT,
             Color.WHITE,
@@ -293,6 +306,15 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         get() = params.text
 
     /**
+     * Получить текстовую разметку.
+     * Имеет ленивую инициализацию.
+     */
+    val layout: Layout
+        get() = cachedLayout
+            ?.takeIf { !isLayoutChanged }
+            ?: updateStaticLayout()
+
+    /**
      * Краска текста разметки.
      */
     val textPaint: TextPaint
@@ -312,6 +334,12 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      */
     val maxLines: Int
         get() = params.maxLines
+
+    /**
+     * Минимальное количество строк.
+     */
+    val minLines: Int
+        get() = params.minLines
 
     /**
      * Количество строк текста в [TextLayout].
@@ -405,27 +433,64 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      */
     @get:Px
     val height: Int
-        get() = if (isVisible) {
-            if (width != 0) {
-                maxOf(
-                    params.minHeight,
-                    minOf(paddingTop + layout.height + paddingBottom, params.maxHeight ?: MAX_VALUE)
-                )
-            } else {
-                params.minHeight
+        get() = when {
+            !isVisible -> 0
+            width != 0 -> {
+                maxOf(params.minHeight, minHeightByLines)
+                    .coerceAtMost(params.maxHeight ?: MAX_VALUE)
             }
-        } else 0
+            else -> maxOf(params.minHeight, minHeightByLines)
+        }
 
     /**
      * Базовая линия текстовой разметки.
-     *
-     * Обращение к полю вызывает построение [StaticLayout], если ранее он еще не был создан,
-     * или если [params] разметки были изменены путем вызова [configure],
-     * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
     val baseline: Int
-        get() = paddingTop + layout.getLineBaseline(0)
+        get() = paddingTop + (cachedLayout?.getLineBaseline(0) ?: 0)
+
+    /**
+     * Прозрачность текста разметки.
+     */
+    @get:FloatRange(from = 0.0, to = 1.0)
+    var alpha: Float = 1f
+        set(value) {
+            field = value
+            textPaint.alpha = (value * textColorAlpha).toInt()
+        }
+
+    /**
+     * Поворот текста вокруг центра на угол в градусах.
+     */
+    var rotation = 0f
+
+    /**
+     * Смещение отрисовки разметки по оси X.
+     */
+    var translationX: Float = 0f
+
+    /**
+     * Смещение отрисовки разметки по оси Y.
+     */
+    var translationY: Float = 0f
+
+    /**
+     * Признак необходимости показа затемнения текста при сокращении.
+     */
+    var requiresFadingEdge: Boolean = false
+
+    /**
+     * Ширина затенения текста, если он не помещается в разметку.
+     */
+    var fadeEdgeSize: Int = 0
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) {
+                fadeShader = createFadeShader()
+                if (value > 0) configure { ellipsize = null }
+            }
+        }
 
     /**
      * Установить/получить список цветов текста для состояний.
@@ -484,17 +549,44 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         }
 
     /**
+     * @see [TextLayoutParams.ellipsize]
+     */
+    val ellipsize: TruncateAt?
+        get() = params.ellipsize
+
+    /**
      * @see [Layout.getEllipsizedWidth]
      */
     val ellipsizedWidth: Int
         get() = layout.ellipsizedWidth
 
     /**
+     * @see [TextLayoutParams.includeFontPad]
+     */
+    val includeFontPad: Boolean
+        get() = params.includeFontPad
+
+    /**
+     * @see [TextLayoutParams.breakStrategy]
+     */
+    val breakStrategy: Int
+        get() = params.breakStrategy
+
+    /**
+     * @see [TextLayoutParams.hyphenationFrequency]
+     */
+    val hyphenationFrequency: Int
+        get() = params.hyphenationFrequency
+
+    /**
      * Получить ожидаемую ширину разметки для однострочного текста [text] без создания [StaticLayout].
+     * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
     @Px
-    fun getDesiredWidth(text: CharSequence): Int =
-        paddingStart + params.paint.getTextWidth(text) + paddingEnd
+    fun getDesiredWidth(text: CharSequence? = null): Int {
+        val resultText = text ?: params.text
+        return paddingStart + params.paint.getTextWidth(resultText) + paddingEnd
+    }
 
     /**
      * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
@@ -503,6 +595,24 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
     fun getDesiredHeight(): Int = textPaint.fontMetrics.let {
         (it.bottom - it.top + it.leading).roundToInt() + paddingTop + paddingBottom
     }
+
+    /**
+     * Измерить ширину разметки с учетом ограничений:
+     * - [TextLayoutParams.maxWidth]
+     * - [TextLayoutParams.minWidth]
+     * - [TextLayoutParams.maxLength]
+     */
+    @Px
+    fun measureWidth(): Int =
+        paddingStart + params.limitedWidth + paddingEnd
+
+    /**
+     * Копировать текстовую разметку c текущими [params].
+     * @param config настройка параметров текстовой разметки.
+     * @return новый текстовая разметка с копированными параметрами текущей разметки.
+     */
+    fun copy(config: TextLayoutConfig? = null): TextLayout =
+        TextLayout(params.copyParams(), config)
 
     /**
      * Настроить разметку.
@@ -521,15 +631,20 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         val oldTextSize = params.paint.textSize
         val oldLetterSpacing = params.paint.letterSpacing
         val oldTypeface = params.paint.typeface
+        val oldColor = params.paint.color
         val oldParams = params.copy()
 
         config.invoke(params)
         checkWarnings()
+        if (oldColor != params.paint.color) {
+            textColorAlpha = params.paint.alpha
+            params.paint.alpha = (textColorAlpha * alpha).toInt()
+        }
 
         val isTextSizeChanged =
-            oldTextSize != params.paint.textSize
-                    || oldLetterSpacing != params.paint.letterSpacing
-                    || oldTypeface != params.paint.typeface
+            oldTextSize != params.paint.textSize ||
+                    oldLetterSpacing != params.paint.letterSpacing ||
+                    oldTypeface != params.paint.typeface
         return (oldParams != params || isTextSizeChanged).also { isChanged ->
             if (isChanged) isLayoutChanged = true
         }
@@ -569,7 +684,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
     }
 
     /**
-     * Разместить разметку на координате ([left],[top]).
+     * Разместить разметку на координате ([left], [top]).
      * Координата является позицией левого верхнего угла [TextLayout]
      *
      * Метод вызывает построение [StaticLayout], если ранее он еще не был создан,
@@ -599,7 +714,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         cachedLayout?.let { layout ->
             if (!isVisible || params.text.isEmpty()) return
 
-            if (fadeEdgeSize > 0 && params.text != layout.text) {
+            if (isFadeEdgeVisible) {
                 drawFade(canvas) { drawLayout(it, layout) }
             } else {
                 drawLayout(canvas, layout)
@@ -613,7 +728,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         function(canvas)
         fadeMatrix.reset()
         fadeMatrix.postTranslate(fadeLeft, 0f)
-        fadeShader.value.setLocalMatrix(fadeMatrix)
+        fadeShader?.value?.setLocalMatrix(fadeMatrix)
         canvas.drawRect(
             fadeLeft,
             top.toFloat(),
@@ -627,7 +742,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
     private fun drawLayout(canvas: Canvas, layout: Layout) {
         canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
             inspectHelper?.draw(this)
-            withTranslation(textPos.first, textPos.second) {
+            withTranslation(translationX + textPos.first, translationY + textPos.second) {
                 layout.draw(this)
             }
         }
@@ -704,7 +819,12 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
     /**
      * @see [Layout.getEllipsisCount]
      */
-    fun getEllipsisCount(line: Int) = layout.getEllipsisCount(line)
+    fun getEllipsisCount(line: Int): Int =
+        if (maxLines == SINGLE_LINE) {
+            params.text.count() - layout.text.count()
+        } else {
+            layout.getEllipsisCount(line)
+        }
 
     /**
      * Обработать событие касания.
@@ -715,6 +835,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
     override fun onTouch(v: View, event: MotionEvent): Boolean =
         touchHelper.onTouch(event)
             ?.also { isHandled -> drawableStateHelper.checkPressedState(event.action, isHandled) }
+            ?.takeIf { touchHelper.onClickListener != null || touchHelper.onLongClickListener != null }
             ?: false
 
     /**
@@ -730,30 +851,50 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      * Созданная разметка помещается в кэш [cachedLayout].
      */
     private fun updateStaticLayout(): Layout =
-        StaticLayoutConfigurator.createStaticLayout(params.text, params.paint) {
+        StaticLayoutConfigurator.createStaticLayout(params.configuredText, params.paint) {
             width = params.textWidth
             alignment = params.alignment
             ellipsize = params.ellipsize
             includeFontPad = params.includeFontPad
+            spacingAdd = params.spacingAdd
+            spacingMulti = params.spacingMulti
             maxLines = params.maxLines
             maxHeight = params.textMaxHeight
             highlights = params.highlights
             canContainUrl = params.canContainUrl
+            breakStrategy = params.breakStrategy
+            hyphenationFrequency = params.hyphenationFrequency
+            fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
         }.also {
             isLayoutChanged = false
             cachedLayout = it
             updateCachedTextWidth()
+            updateFadeEdgeVisibility()
         }
 
     /**
      * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
      */
     private fun updateCachedTextWidth() {
-        cachedTextWidth = if (layout.lineCount == 1 && params.needHighWidthAccuracy) {
+        cachedTextWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
             layout.getLineWidth(0).roundToInt()
         } else {
             layout.width
         }
+    }
+
+    /**
+     * Обновить признак затенения каря для слишком длинного текста [isFadeEdgeVisible].
+     */
+    private fun updateFadeEdgeVisibility() {
+        isFadeEdgeVisible = requiresFadingEdge && fadeEdgeSize > 0
+                && maxLines == 1
+                && params.text != TextUtils.ellipsize(
+            text,
+            textPaint,
+            params.textWidth.toFloat(),
+            TruncateAt.END
+        )
     }
 
     private fun checkWarnings() {
@@ -763,10 +904,22 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         val minWidth = params.minWidth
         val maxWidth = params.maxWidth
         if (minWidth > 0 && layoutWidth < minWidth) {
-            Timber.e(IllegalArgumentException("Потенциальная ошибка отображения TextLayout: значение параметра layoutWidth(${params.layoutWidth}) меньше minWidth(${params.minWidth}). Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"))
+            Timber.e(
+                IllegalArgumentException(
+                    "Потенциальная ошибка отображения TextLayout: " +
+                            "значение параметра layoutWidth(${params.layoutWidth}) меньше minWidth(${params.minWidth}). " +
+                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
+                )
+            )
         }
         if (maxWidth != null && layoutWidth > maxWidth) {
-            Timber.e(IllegalArgumentException("Потенциальная ошибка отображения TextLayout: значение параметра layoutWidth(${params.layoutWidth}) больше maxWidth(${params.maxWidth}). Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"))
+            Timber.e(
+                IllegalArgumentException(
+                    "Потенциальная ошибка отображения TextLayout: " +
+                            "значение параметра layoutWidth(${params.layoutWidth}) больше maxWidth(${params.maxWidth}). " +
+                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
+                )
+            )
         }
     }
 
@@ -779,7 +932,11 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      * @property alignment мод выравнивания текста.
      * @property ellipsize мод сокращения текста.
      * @property includeFontPad включить стандартные отступы шрифта.
+     * @property spacingAdd величина межстрочного интервала.
+     * @property spacingMulti множитель межстрочного интервала.
      * @property maxLines максимальное количество строк.
+     * @property minLines минимальное количество строк.
+     * @property maxLength максимальное количество символов в строке.
      * @property isVisible состояние видимости разметки.
      * @property padding внутренние отступы разметки.
      * @property highlights модель для выделения текста.
@@ -790,6 +947,9 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      * @property isVisibleWhenBlank мод скрытия разметки при пустом тексте, включая [padding].
      * @property canContainUrl true, если строка может содержать url. Влияет на точность сокращения текста
      * и скорость создания [StaticLayout]. (Использовать только для [maxLines] > 1, когда текст может содержать ссылки).
+     * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
+     * Если необходим только для ссылок, то лучше воспользоваться [canContainUrl].
+     * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
      * @property needHighWidthAccuracy true, если необходимо включить мод высокой точности ширины текста.
      * Механика релевантна для однострочных разметок с сокращением текста, к размерам которых привязаны другие элементы.
      * После сокращения текста [StaticLayout] не всегда имеет точные размеры строго по границам текста ->
@@ -798,12 +958,16 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
      */
     data class TextLayoutParams(
         var text: CharSequence = StringUtils.EMPTY,
-        var paint: TextPaint = TextPaint(ANTI_ALIAS_FLAG),
+        var paint: TextPaint = SimpleTextPaint(),
         @Px var layoutWidth: Int? = null,
         var alignment: Alignment = Alignment.ALIGN_NORMAL,
         var ellipsize: TruncateAt? = TruncateAt.END,
         var includeFontPad: Boolean = true,
-        var maxLines: Int = 1,
+        var spacingAdd: Float = DEFAULT_SPACING_ADD,
+        var spacingMulti: Float = DEFAULT_SPACING_MULTI,
+        var maxLines: Int = SINGLE_LINE,
+        var minLines: Int = 0,
+        var maxLength: Int = Int.MAX_VALUE,
         var isVisible: Boolean = true,
         var padding: TextLayoutPadding = TextLayoutPadding(),
         var highlights: TextHighlights? = null,
@@ -813,6 +977,8 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         @Px var maxHeight: Int? = null,
         var isVisibleWhenBlank: Boolean = true,
         var canContainUrl: Boolean = false,
+        var breakStrategy: Int = 0,
+        var hyphenationFrequency: Int = 0,
         var needHighWidthAccuracy: Boolean = false
     ) {
 
@@ -823,16 +989,31 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         internal val textWidth: Int
             get() {
                 val layoutWidth = layoutWidth
-                val horizontalPadding = padding.start + padding.end
                 return if (layoutWidth != null) {
-                    maxOf(layoutWidth - horizontalPadding, 0)
+                    maxOf(layoutWidth - padding.start - padding.end, 0)
                 } else {
-                    val textWidth = paint.getTextWidth(text)
-                    val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
-                    val maxTextWidth = maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: MAX_VALUE
-
-                    maxOf(minTextWidth, minOf(textWidth, maxTextWidth))
+                    limitedWidth
                 }
+            }
+
+        /**
+         * Ширина текста с учетом ограничений.
+         */
+        @get:Px
+        internal val limitedWidth: Int
+            get() {
+                val horizontalPadding = padding.start + padding.end
+                val text = configuredText
+                val containsAbsoluteSizeSpans = text is Spannable
+                        && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
+                val textWidth = if (containsAbsoluteSizeSpans) {
+                    ceil(Layout.getDesiredWidth(text, paint)).toInt()
+                } else {
+                    paint.getTextWidth(text)
+                }
+                val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
+                val maxTextWidth = maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: MAX_VALUE
+                return maxOf(minTextWidth, minOf(textWidth, maxTextWidth))
             }
 
         /**
@@ -841,6 +1022,28 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         @get:Px
         internal val textMaxHeight: Int?
             get() = maxHeight?.let { maxOf(it - padding.top - padding.bottom, 0) }
+
+        /**
+         * Сконфигурированный текст с учетом настроек параметров.
+         */
+        internal val configuredText: CharSequence
+            get() = when {
+                maxLength == Int.MAX_VALUE || maxLength < 0 -> text
+                text.isEmpty() -> text
+                maxLength >= text.length -> text
+                else -> text.subSequence(0, maxLength)
+            }
+
+        /**
+         * Копировать параметры.
+         */
+        fun copyParams(): TextLayoutParams = copy(
+            paint = SimpleTextPaint().apply {
+                typeface = paint.typeface
+                textSize = paint.textSize
+                color = paint.color
+            }
+        )
     }
 
     /**
@@ -870,10 +1073,21 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
         private var gestureDetector: GestureDetector? = null
             get() {
                 if (field == null) {
-                    field = parentView?.context?.let { GestureDetector(it, gestureListener) }
+                    field = parentView?.context?.let {
+                        object : GestureDetector(it, gestureListener) {
+                            override fun onTouchEvent(ev: MotionEvent): Boolean =
+                                if (ev.action == ACTION_MOVE && drawableStateHelper.isPressedState) {
+                                    gestureListener.onMove(ev)
+                                } else {
+                                    super.onTouchEvent(ev)
+                                }
+                        }
+                    }
                 }
+                field?.setIsLongpressEnabled(onLongClickListener != null)
                 return field
             }
+
         private val gestureListener = object : GestureDetector.SimpleOnGestureListener() {
 
             private fun isInTouchRect(event: MotionEvent) =
@@ -898,9 +1112,13 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
                     }
                 }
             }
+
+            fun onMove(event: MotionEvent) = isInTouchRect(event)
         }
-        private var onClickListener: OnClickListener? = null
-        private var onLongClickListener: OnLongClickListener? = null
+        var onClickListener: OnClickListener? = null
+            private set
+        var onLongClickListener: OnLongClickListener? = null
+            private set
 
         /**
          * Проинициализировать помощника.
@@ -1005,6 +1223,12 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
          */
         private val drawableState = mutableSetOf(android.R.attr.state_enabled)
         private var parentView: View? = null
+
+        /**
+         * Получить состояние нажатости.
+         */
+        val isPressedState: Boolean
+            get() = drawableState.contains(android.R.attr.state_pressed)
 
         /**
          * Проинициализировать помощника.
@@ -1171,7 +1395,7 @@ class TextLayout(config: TextLayoutConfig? = null) : View.OnTouchListener {
                 left.toFloat() + ONE_PX,
                 top.toFloat() + ONE_PX,
                 right.toFloat() - ONE_PX,
-                bottom.toFloat() - ONE_PX,
+                bottom.toFloat() - ONE_PX
             )
             borderPath.addRect(borderRectF, Path.Direction.CW)
 
@@ -1223,3 +1447,6 @@ typealias TextLayoutConfig = TextLayoutParams.() -> Unit
  */
 private const val isInspectMode = false
 private const val ONE_PX = 1
+private const val SINGLE_LINE = 1
+private const val DEFAULT_SPACING_ADD = 0f
+private const val DEFAULT_SPACING_MULTI = 1f

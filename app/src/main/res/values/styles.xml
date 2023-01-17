@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <style name="SbisTextViewDefaultTheme">
+        <item name="android:textSize">20dp</item>
+        <item name="android:textColor">@color/black</item>
+    </style>
+
     <style name="SimpleTextViewStyle">
         <item name="android:text">SimpleTextView Some Text</item>
         <item name="android:textSize">20dp</item>

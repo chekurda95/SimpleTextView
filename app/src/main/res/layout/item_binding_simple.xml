@@ -10,7 +10,7 @@
 
     </data>
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@{viewModel.text}"

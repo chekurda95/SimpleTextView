@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/TitleStyle"
         android:id="@+id/title"
         android:layout_width="wrap_content"
@@ -14,7 +14,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"/>
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/FirstLineStyle"
         android:id="@+id/first_line"
         android:layout_width="wrap_content"
@@ -23,7 +23,7 @@
         app:layout_constraintTop_toBottomOf="@+id/title"
         app:layout_constraintStart_toStartOf="parent"/>
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/SecondLineStyle"
         android:id="@+id/second_line"
         android:layout_width="wrap_content"

@@ -10,19 +10,19 @@
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@+id/relative_title">
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/TitleStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"/>
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/FirstLineStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"/>
 
-    <com.example.simpletextview.simple_tv.SimpleTextView
+    <com.example.simpletextview.simple_tv.SbisTextView
         style="@style/SecondLineStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -1,5 +1,6 @@
 package com.example.simpletextview.custom_tools.styles
 
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.TextUtils.TruncateAt
@@ -39,6 +40,7 @@ sealed class StyleParams(val styleKey: StyleKey) {
      * @property text текст.
      * @property textSize размер текста.
      * @property textColor цвет текста.
+     * @property colorStateList цвета состояний.
      * @property layoutWidth ширина разметки.
      * @property alignment мод выравнивания текста.
      * @property ellipsize мод сокращения текста.
@@ -53,6 +55,7 @@ sealed class StyleParams(val styleKey: StyleKey) {
         val text: String? = null,
         @Px val textSize: Float? = null,
         @ColorInt val textColor: Int? = null,
+        val colorStateList: ColorStateList? = null,
         val typeface: Typeface? = null,
         @Px val layoutWidth: Int? = null,
         val alignment: Layout.Alignment? = null,

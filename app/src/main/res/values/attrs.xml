@@ -1,6 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <declare-styleable name="SimpleTextView">
-        <attr name="SimpleTextView_style" format="reference"/>
+
+    <attr name="sbisTextViewTheme" format="reference"/>
+
+    <declare-styleable name="SbisTextView">
+        <attr name="android:text" format="reference|string" localization="suggested"/>
+        <attr name="android:textSize"/>
+        <attr name="android:textColor"/>
+        <attr name="android:textAllCaps" format="boolean"/>
+        <attr name="android:fontFamily" format="reference|string"/>
+        <attr name="android:includeFontPadding" format="boolean"/>
+        <attr name="android:lines" format="integer" min="0"/>
+        <attr name="android:maxLines" format="integer" min="0"/>
+        <attr name="android:minLines" format="integer" min="0"/>
+        <attr name="android:singleLine" format="boolean"/>
+        <attr name="android:maxLength" format="integer" min="0"/>
+        <attr name="android:minHeight" format="dimension"/>
+        <attr name="android:maxHeight" format="dimension"/>
+        <attr name="android:minWidth" format="dimension"/>
+        <attr name="android:maxWidth" format="dimension"/>
+        <attr name="android:enabled" format="boolean"/>
+        <attr name="android:fadingEdgeLength" format="dimension"/>
+        <attr name="android:textColorLink" format="reference|color"/>
+
+        <attr name="android:textStyle">
+            <flag name="normal" value="0" />
+            <flag name="bold" value="1" />
+            <flag name="italic" value="2" />
+            <flag name="bold_italic" value="3" />
+        </attr>
+        <attr name="android:gravity">
+            <flag name="top" value="0x30" />
+            <flag name="bottom" value="0x50" />
+            <flag name="left" value="0x03" />
+            <flag name="right" value="0x05" />
+            <flag name="center_vertical" value="0x10" />
+            <flag name="fill_vertical" value="0x70" />
+            <flag name="center_horizontal" value="0x01" />
+            <flag name="fill_horizontal" value="0x07" />
+            <flag name="center" value="0x11" />
+            <flag name="fill" value="0x77" />
+            <flag name="clip_vertical" value="0x80" />
+            <flag name="clip_horizontal" value="0x08" />
+            <flag name="start" value="0x00800003" />
+            <flag name="end" value="0x00800005" />
+        </attr>
+        <attr name="android:textAlignment">
+            <enum name="inherit" value="0"/>
+            <enum name="gravity" value="1"/>
+            <enum name="textStart" value="2"/>
+            <enum name="textEnd" value="3"/>
+            <enum name="center" value="4"/>
+            <enum name="viewStart" value="5"/>
+            <enum name="viewEnd" value="6"/>
+        </attr>
+        <attr name="android:ellipsize">
+            <enum name="none" value="0"/>
+            <enum name="start" value="1"/>
+            <enum name="middle" value="2"/>
+            <enum name="end" value="3" />
+            <enum name="marquee" value="4"/>
+        </attr>
+        <attr name="android:breakStrategy">
+            <enum name="simple" value="0"/>
+            <enum name="high_quality" value="1"/>
+            <enum name="balanced" value="2"/>
+        </attr>
+        <attr name="android:hyphenationFrequency">
+            <enum name="none" value="0"/>
+            <enum name="normal" value="1"/>
+            <enum name="full" value="2"/>
+        </attr>
+        <attr name="android:requiresFadingEdge">
+            <enum name="none" value="0" />
+            <enum name="horizontal" value="1"/>
+        </attr>
+
+        <!-- WIP https://online.sbis.ru/opendoc.html?guid=980c4a35-416f-48cf-a65c-caa120802fed&client=3
+        android:minTextSize
+        android:maxTextSize -->
+
     </declare-styleable>
+
 </resources>

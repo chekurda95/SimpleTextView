@@ -27,4 +27,19 @@ object MeasureSpecUtils {
      */
     fun makeExactlySpec(@Px size: Int): Int =
         MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY)
+
+    /**
+     * Получить размер стороны View согласно спецификации [MeasureSpec].
+     *
+     * @param measureSpec спецификация размера [MeasureSpec].
+     * @param unspecifiedSize геттер размера, которое хочет принять View без ограничений со стороны родителя.
+     * @return размер стороны View в px.
+     */
+    @Px
+    fun measureDirection(measureSpec: Int, unspecifiedSize: () -> Int): Int =
+        when (MeasureSpec.getMode(measureSpec)) {
+            MeasureSpec.EXACTLY -> MeasureSpec.getSize(measureSpec)
+            MeasureSpec.AT_MOST -> minOf(unspecifiedSize(), MeasureSpec.getSize(measureSpec))
+            else -> unspecifiedSize()
+        }
 }

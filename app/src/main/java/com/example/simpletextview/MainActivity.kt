@@ -10,7 +10,7 @@ import android.widget.Toast
 import androidx.appcompat.widget.AppCompatTextView
 import com.example.simpletextview.custom_tools.utils.ExecutionTimeAnalytic
 import com.example.simpletextview.custom_tools.utils.dp
-import com.example.simpletextview.simple_tv.SimpleTextView
+import com.example.simpletextview.simple_tv.SbisTextView
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,16 +69,13 @@ class MainActivity : AppCompatActivity() {
             ExecutionTimeAnalytic.analyzeExecutionTime(
                 count,
                 ExecutionTimeAnalytic.Execution("Inflate") {
-                    inflater.inflate(R.layout.simple_text_view_without_cache, rootView, false)
-                },
-                ExecutionTimeAnalytic.Execution("Inflate") {
                     inflater.inflate(R.layout.simple_text_view, rootView, false)
                 },
                 ExecutionTimeAnalytic.Execution("Inflate") {
                     inflater.inflate(R.layout.app_compat_text_view, rootView, false)
                 },
                 ExecutionTimeAnalytic.Execution("Program") {
-                    SimpleTextView(this).apply {
+                    SbisTextView(this).apply {
                         text = "SimpleTextView Some Text"
                         paint.textSize = dp(20).toFloat()
                         paint.color = Color.BLACK

@@ -6,12 +6,12 @@ import android.os.Build.VERSION_CODES.M
 import android.text.*
 import android.text.Layout.Alignment
 import android.text.StaticLayout.BREAK_STRATEGY_HIGH_QUALITY
-import android.text.StaticLayout.BREAK_STRATEGY_SIMPLE
 import android.text.TextUtils.TruncateAt
 import android.widget.TextView
 import androidx.annotation.IntRange
 import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator.Companion.createStaticLayout
+import kotlin.math.ceil
 
 /**
  * Конфигуратор для создания статичной текстовой разметки [StaticLayout].
@@ -30,10 +30,16 @@ import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator.Co
  * @property alignment мод выравнивания текста. По-умолчанию выравнивание по левому краю.
  * @property ellipsize мод сокращения текста. По-умолчанию текст сокращается в конце.
  * @property includeFontPad true, если необходимо учитывать отступы шрифта, аналог атрибута includeFontPadding.
+ * @property spacingAdd величина межстрочного интервала.
+ * @property spacingMulti множитель межстрочного интервала.
  * @property maxLines максимально допустимое количество строк, аналогично механике [TextView.setMaxLines]. Null - без ограничений.
  * @property maxHeight максимально допустимая высота. Опционально необходима для ограничения количества строк высотой, а не значением.
  * @property highlights модель для выделения текста, например для сценариев поиска.
  * @property canContainUrl true, если строка может содержать url. Влияет на точность сокращения текста
+ * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
+ * Если необходим только для ссылок, то лучше воспользоваться [canContainUrl].
+ * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
+ * @property fadingEdge построение разметки с учетом возможного размыливания вместо сокращения текста.
  * и скорость создания [StaticLayout]. (Использовать только для [maxLines] > 1, когда текст может содержать ссылки)
  *
  * @author vv.chekurda
@@ -45,10 +51,15 @@ class StaticLayoutConfigurator internal constructor(
     var alignment: Alignment = Alignment.ALIGN_NORMAL,
     var ellipsize: TruncateAt? = TruncateAt.END,
     var includeFontPad: Boolean = true,
+    var spacingAdd: Float = DEFAULT_SPACING_ADD,
+    var spacingMulti: Float = DEFAULT_SPACING_MULTI,
     @IntRange(from = 1) var maxLines: Int = SINGLE_LINE,
     @Px var maxHeight: Int? = null,
     var highlights: TextHighlights? = null,
     var canContainUrl: Boolean = false,
+    var breakStrategy: Int = 0,
+    var hyphenationFrequency: Int = 0,
+    var fadingEdge: Boolean = false,
     private var config: StaticLayoutConfig? = null
 ) {
     companion object {
@@ -72,8 +83,8 @@ class StaticLayoutConfigurator internal constructor(
      */
     internal fun configure(): StaticLayout {
         config?.invoke(this)
-        configureWidth()
         configureMaxLines()
+        configureWidth()
         configureText()
         return buildStaticLayout().let { layout ->
             if (layout.lineCount <= maxLines) {
@@ -94,10 +105,22 @@ class StaticLayoutConfigurator internal constructor(
      * Настроить ширину текста.
      */
     private fun configureWidth() {
-        width = if (width == DEFAULT_WRAPPED_WIDTH) {
-            paint.getTextWidth(text)
-        } else {
-            maxOf(0, width)
+        width = when {
+            text !is Spannable -> {
+                maxOf(
+                    width.takeIf { it != DEFAULT_WRAPPED_WIDTH }
+                        ?: paint.getTextWidth(text),
+                    0
+                )
+            }
+            width == DEFAULT_WRAPPED_WIDTH || (maxLines == SINGLE_LINE && width == paint.getTextWidth(text)) -> {
+                width = Int.MAX_VALUE
+                val layout = buildStaticLayout()
+                ceil(layout.getLineWidth(0)).toInt()
+            }
+            else -> {
+                maxOf(0, width)
+            }
         }
     }
 
@@ -119,10 +142,37 @@ class StaticLayoutConfigurator internal constructor(
      */
     private fun configureText() {
         if (isNeedFade()) return
-        text = if (maxLines == MAX_LINES_NO_LIMIT) {
-            text.highlightText(highlights)
-        } else {
-            text.ellipsizeAndHighlightText(paint, width * maxLines, highlights)
+        text = when {
+            // Текст без ограничений по высоте или ширине -> не пытаемся сокращать
+            maxLines == MAX_LINES_NO_LIMIT -> {
+                text.highlightText(highlights)
+            }
+            // Spannable текст с переносами с ограничением в maxLines -> парсим строки руками и при необходимости сокращаем
+            maxLines > 0 && text.contains("\n") -> {
+                if (text !is Spannable) {
+                    text.split("\n")
+                        .joinToString(separator = "\n", limit = maxLines)
+                        .ellipsizeAndHighlightText(paint, width * maxLines, highlights)
+                } else {
+                    var lastHyphenationIndex = 0
+                    repeat(maxLines) {
+                        val index = text.indexOf("\n", lastHyphenationIndex + 1, false)
+                        lastHyphenationIndex = index
+                        if (index != -1) {
+                            return@repeat
+                        }
+                    }
+                    if (lastHyphenationIndex != -1) {
+                        text.subSequence(0, lastHyphenationIndex)
+                    } else {
+                        text
+                    }.ellipsizeAndHighlightText(paint, width * maxLines, highlights)
+                }
+            }
+            // Многострочный текст с ограничением по ширине -> при необходимости сокращаем
+            else -> {
+                text.ellipsizeAndHighlightText(paint, width * maxLines, highlights)
+            }
         }
     }
 
@@ -140,12 +190,13 @@ class StaticLayoutConfigurator internal constructor(
         return if (SDK_INT >= M) {
             StaticLayout.Builder.obtain(text, 0, text.length, paint, calculatedWidth)
                 .setAlignment(alignment)
-                .setLineSpacing(SPACING_ADD, SPACING_MULT)
+                .setLineSpacing(spacingAdd, spacingMulti)
                 .setIncludePad(includeFontPad)
                 .setEllipsize(ellipsize)
                 .setEllipsizedWidth(calculatedWidth)
                 .setMaxLines(maxLines)
-                .setBreakStrategy(if (isBreakHighQuality) BREAK_STRATEGY_HIGH_QUALITY else BREAK_STRATEGY_SIMPLE)
+                .setBreakStrategy(if (isBreakHighQuality) BREAK_STRATEGY_HIGH_QUALITY else breakStrategy)
+                .setHyphenationFrequency(hyphenationFrequency)
                 .build()
         } else {
             @Suppress("DEPRECATION")
@@ -156,16 +207,17 @@ class StaticLayoutConfigurator internal constructor(
                 paint,
                 calculatedWidth,
                 alignment,
-                SPACING_MULT,
-                SPACING_ADD,
+                spacingMulti,
+                spacingAdd,
                 includeFontPad,
                 ellipsize,
                 calculatedWidth
             )
-        }    }
+        }
+    }
 
-
-    private fun isNeedFade() = ellipsize == null && text != TextUtils.ellipsize(text, paint, width.toFloat(), TruncateAt.END)
+    private fun isNeedFade(): Boolean =
+        fadingEdge && text != TextUtils.ellipsize(text, paint, width.toFloat(), TruncateAt.END)
 
     /**
      * Получить высоту одной строки текста по заданному [paint].
@@ -198,8 +250,8 @@ class StaticLayoutConfigurator internal constructor(
 private typealias StaticLayoutConfig = StaticLayoutConfigurator.() -> Unit
 
 private const val MAX_LINES_NO_LIMIT = Integer.MAX_VALUE
-private const val SPACING_MULT = 1f
-private const val SPACING_ADD = 0f
+private const val DEFAULT_SPACING_ADD = 0f
+private const val DEFAULT_SPACING_MULTI = 1f
 private const val HORIZONTAL_ELLIPSIS_CHAR = "\u2026"
 private const val SINGLE_LINE = 1
 private const val DEFAULT_WRAPPED_WIDTH = -1
