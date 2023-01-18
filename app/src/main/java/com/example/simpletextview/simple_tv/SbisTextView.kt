@@ -483,6 +483,7 @@ open class SbisTextView : View, SbisTextViewApi {
                 ?.let { ResourcesCompat.getFont(context, it) }
             val textStyle = getInt(R.styleable.SbisTextView_android_textStyle, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
+            val includeFontPadding = getBoolean(R.styleable.SbisTextView_android_includeFontPadding, true)
             val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps, false)
 
             val gravity = getInt(R.styleable.SbisTextView_android_gravity, NO_RESOURCE)
@@ -537,6 +538,7 @@ open class SbisTextView : View, SbisTextViewApi {
                         Typeface.create(typeface, style)
                     } ?: typeface
                 }
+                this.includeFontPad = includeFontPadding
                 this.ellipsize = if (singleLine && ellipsize != null) TextUtils.TruncateAt.END else ellipsize
                 this.breakStrategy = breakStrategy
                 this.hyphenationFrequency = hyphenationFrequency
