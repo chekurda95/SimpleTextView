@@ -80,12 +80,18 @@ fun CharSequence.ellipsizeAndHighlightText(
     paint: TextPaint,
     @Px width: Int,
     highlights: TextHighlights?,
-    ellipsize: TruncateAt = TruncateAt.END
+    ellipsize: TruncateAt? = TruncateAt.END
 ): CharSequence =
     if (width > 0 && isNotBlank()) {
         TextUtils.ellipsize(this, paint, width.toFloat(), ellipsize).let { ellipsizedText ->
             if (!highlights?.positionList.isNullOrEmpty()) ellipsizedText.highlightText(highlights)
             else ellipsizedText
+        }.let { highlightedText ->
+            if (ellipsize == null && highlightedText.hasSymbolEllipsize) {
+                highlightedText.removeSuffix(ELLIPSIZE_CHAR)
+            } else {
+                highlightedText
+            }
         }
     } else {
         StringUtils.EMPTY

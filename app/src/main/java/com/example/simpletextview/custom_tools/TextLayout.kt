@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
+import android.text.BoringLayout
 import android.text.Layout
 import android.text.Layout.Alignment
 import android.text.Spannable
@@ -13,6 +14,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
+import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
@@ -39,6 +41,7 @@ import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
+import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import timber.log.Timber
 import java.lang.Integer.MAX_VALUE
@@ -229,11 +232,30 @@ class TextLayout private constructor(
     private var cachedTextWidth: Int = 0
         get() = layout.let { field }
 
+    @Px
+    private var cachedWidth = 0
+
+    @Px
+    private var cachedHeight = 0
+
+    private var cachedIsVisible = true
+
     /**
      * Признак необходимости в построении layout при следующем обращении
      * по причине изменившихся данных.
      */
     private var isLayoutChanged: Boolean = true
+        set(value) {
+            field = value
+            if (value) {
+                isWidthChanged = true
+                isHeightChanged = true
+                isVisibleChanged = true
+            }
+        }
+    private var isWidthChanged: Boolean = true
+    private var isHeightChanged: Boolean = true
+    private var isVisibleChanged: Boolean = true
 
     /**
      * Позиция текста для рисования с учетом внутренних отступов (координата левого верхнего угла).
@@ -310,9 +332,14 @@ class TextLayout private constructor(
      * Имеет ленивую инициализацию.
      */
     val layout: Layout
-        get() = cachedLayout
-            ?.takeIf { !isLayoutChanged }
-            ?: updateStaticLayout()
+        get() {
+            val cachedLayout = cachedLayout
+            return if (!isLayoutChanged && cachedLayout != null) {
+                cachedLayout
+            } else {
+                updateStaticLayout()
+            }
+        }
 
     /**
      * Краска текста разметки.
@@ -324,10 +351,15 @@ class TextLayout private constructor(
      * Видимость разметки.
      */
     val isVisible: Boolean
-        get() = params.isVisible.let {
-            if (!params.isVisibleWhenBlank) it && params.text.isNotBlank()
-            else it
-        }
+        get() = if (isVisibleChanged) {
+            val result = params.isVisible.let {
+                if (!params.isVisibleWhenBlank) it && params.text.isNotBlank()
+                else it
+            }
+            cachedIsVisible = result
+            isVisibleChanged = false
+            result
+        } else cachedIsVisible
 
     /**
      * Максимальное количество строк.
@@ -416,13 +448,23 @@ class TextLayout private constructor(
      */
     @get:Px
     val width: Int
-        get() = if (isVisible) {
-            params.layoutWidth
-                ?: maxOf(
-                    params.minWidth,
-                    minOf(paddingStart + cachedTextWidth + paddingEnd, params.maxWidth ?: MAX_VALUE)
-                )
-        } else 0
+        get() = if (isWidthChanged) {
+            val result = if (isVisible) {
+                params.layoutWidth
+                    ?: maxOf(
+                        params.minWidth,
+                        minOf(
+                            paddingStart + cachedTextWidth + paddingEnd,
+                            params.maxWidth ?: MAX_VALUE
+                        )
+                    )
+            } else 0
+            cachedWidth = result
+            isWidthChanged = false
+            result
+        } else {
+            cachedWidth
+        }
 
     /**
      * Высота всей разметки.
@@ -433,14 +475,19 @@ class TextLayout private constructor(
      */
     @get:Px
     val height: Int
-        get() = when {
-            !isVisible -> 0
-            width != 0 -> {
-                maxOf(params.minHeight, minHeightByLines)
-                    .coerceAtMost(params.maxHeight ?: MAX_VALUE)
+        get() = if (isHeightChanged) {
+            val result = when {
+                !isVisible -> 0
+                width != 0 -> {
+                    maxOf(params.minHeight, minHeightByLines)
+                        .coerceAtMost(params.maxHeight ?: MAX_VALUE)
+                }
+                else -> maxOf(params.minHeight, minHeightByLines)
             }
-            else -> maxOf(params.minHeight, minHeightByLines)
-        }
+            cachedHeight = result
+            isHeightChanged = false
+            result
+        } else cachedHeight
 
     /**
      * Базовая линия текстовой разметки.
@@ -627,28 +674,34 @@ class TextLayout private constructor(
      */
     fun configure(
         config: TextLayoutConfig
-    ): Boolean {
-        val oldTextSize = params.paint.textSize
-        val oldLetterSpacing = params.paint.letterSpacing
-        val oldTypeface = params.paint.typeface
-        val oldColor = params.paint.color
-        val oldParams = params.copy()
+    ): Boolean =
+        if (isLayoutChanged) {
+            config.invoke(params)
+            Log.e("TAGTAG", "configure end ${System.nanoTime() / 1000}")
+            true
+        } else {
+            val oldTextSize = params.paint.textSize
+            val oldLetterSpacing = params.paint.letterSpacing
+            val oldTypeface = params.paint.typeface
+            val oldColor = params.paint.color
+            val oldParams = params.copy()
 
-        config.invoke(params)
-        checkWarnings()
-        if (oldColor != params.paint.color) {
-            textColorAlpha = params.paint.alpha
-            params.paint.alpha = (textColorAlpha * alpha).toInt()
-        }
+            config.invoke(params)
+            //checkWarnings()
+            if (oldColor != params.paint.color) {
+                textColorAlpha = params.paint.alpha
+                params.paint.alpha = (textColorAlpha * alpha).toInt()
+            }
 
-        val isTextSizeChanged =
-            oldTextSize != params.paint.textSize ||
-                    oldLetterSpacing != params.paint.letterSpacing ||
-                    oldTypeface != params.paint.typeface
-        return (oldParams != params || isTextSizeChanged).also { isChanged ->
-            if (isChanged) isLayoutChanged = true
+            val isTextSizeChanged =
+                oldTextSize != params.paint.textSize ||
+                        oldLetterSpacing != params.paint.letterSpacing ||
+                        oldTypeface != params.paint.typeface
+            (oldParams != params || isTextSizeChanged).also { isChanged ->
+                if (isChanged) isLayoutChanged = true
+                Log.e("TAGTAG", "configure end ${System.nanoTime() / 1000}")
+            }
         }
-    }
 
     /**
      * Построить разметку.
@@ -661,10 +714,28 @@ class TextLayout private constructor(
      */
     fun buildLayout(
         config: TextLayoutConfig? = null
-    ): Boolean =
-        config?.let { configure(it) }
-            .also { if (isVisible) layout }
-            ?: false
+    ): Boolean {
+        val time = System.nanoTime() / 1000
+        Log.e("TAGTAG", "start buildLayout $time")
+        val isChanged = if (config != null) {
+            configure(config)
+        } else false
+        if (isVisible) layout
+        return isChanged
+    }
+
+    fun buildLayout(width: Int) {
+        val time = System.nanoTime() / 1000
+        Log.e("TAGTAG", "start buildLayout $time")
+        if (isLayoutChanged) {
+            params.layoutWidth = width
+        } else {
+            val current = params.layoutWidth
+            params.layoutWidth = width
+            isLayoutChanged = current != width
+        }
+        if (isVisible) layout
+    }
 
     /**
      * Обновить внутренние отступы.
@@ -845,32 +916,64 @@ class TextLayout private constructor(
         drawableStateHelper.checkPressedState(ACTION_CANCEL, true)
     }
 
+    private var boring: BoringLayout.Metrics? = null
+    private var savedLayout: BoringLayout? = null
+
     /**
      * Обновить разметку по набору параметров [params].
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
      */
-    private fun updateStaticLayout(): Layout =
-        StaticLayoutConfigurator.createStaticLayout(params.configuredText, params.paint) {
-            width = params.textWidth
-            alignment = params.alignment
-            ellipsize = params.ellipsize
-            includeFontPad = params.includeFontPad
-            spacingAdd = params.spacingAdd
-            spacingMulti = params.spacingMulti
-            maxLines = params.maxLines
-            maxHeight = params.textMaxHeight
-            highlights = params.highlights
-            canContainUrl = params.canContainUrl
-            breakStrategy = params.breakStrategy
-            hyphenationFrequency = params.hyphenationFrequency
+    private fun updateStaticLayout(): Layout {
+        val startTime = System.nanoTime()
+        Log.e("TAGTAG", "start updateStaticLayout ${startTime / 1000}")
+        if (text !is Spannable) {
+            boring = BoringLayout.isBoring(text, textPaint, boring)
+        }
+        val boringResult = (System.nanoTime() - startTime) / 1000
+        val time2 = System.nanoTime() / 1000
+        Log.e("TAGTAG", "start LayoutConfigurator.createLayout $time2, boring $boringResult")
+        val createLayoutStartTime = System.nanoTime()
+        val configurator = LayoutConfigurator(
+            params.configuredText,
+            params.paint,
+            boring,
+            savedLayout,
+            width = params.textWidth,
+            alignment = params.alignment,
+            ellipsize = params.ellipsize,
+            includeFontPad = params.includeFontPad,
+            spacingAdd = params.spacingAdd,
+            spacingMulti = params.spacingMulti,
+            maxLines = params.maxLines,
+            maxHeight = params.textMaxHeight,
+            highlights = params.highlights,
+            canContainUrl = params.canContainUrl,
+            breakStrategy = params.breakStrategy,
+            hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-        }.also {
+        )
+        val resultConfigurator = (System.nanoTime() - createLayoutStartTime) / 1000
+        val configureStart = System.nanoTime()
+        val layout = configurator.configure()
+        val configureResult = (System.nanoTime() - configureStart) / 1000
+        Log.e("TAGTAG", "LayoutConfigurator() $resultConfigurator")
+        Log.e("TAGTAG", "configurator.configure $configureResult")
+        val resultTime = (System.nanoTime() - createLayoutStartTime) / 1000
+        Log.e("TAGTAG", "createLayout $resultTime")
+
+        val alsoTime = System.nanoTime()
+        layout.also {
             isLayoutChanged = false
             cachedLayout = it
+            if (it is BoringLayout) savedLayout = it
             updateCachedTextWidth()
             updateFadeEdgeVisibility()
         }
+        val resultAlso = (System.nanoTime() - alsoTime) / 1000
+        Log.e("TAGTAG", "updateStaticLayout also time $resultAlso")
+        return layout
+    }
 
     /**
      * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
@@ -1183,8 +1286,8 @@ class TextLayout private constructor(
          * Для сброса статичной области кликабельности необходимо передать [rect] == null.
          */
         fun setStaticTouchRect(rect: Rect?) {
+            isStaticTouchRect = rect != null
             touchRect.set(rect ?: this@TextLayout.rect)
-            isStaticTouchRect = touchRect != this@TextLayout.rect
         }
 
         /**
