@@ -14,7 +14,6 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
-import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
@@ -27,6 +26,7 @@ import androidx.annotation.IdRes
 import androidx.annotation.Px
 import androidx.annotation.StyleRes
 import androidx.core.content.res.ResourcesCompat.ID_NULL
+import androidx.core.graphics.withClip
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
 import com.example.simpletextview.BuildConfig
@@ -37,7 +37,6 @@ import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider
 import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
 import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
-import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
@@ -275,7 +274,8 @@ class TextLayout private constructor(
         get() {
             val layoutHeight = when {
                 minLines <= 0 || !isVisible -> 0
-                minLines <= layout.lineCount -> layout.height
+                maxLines <= lineCount -> layout.getLineTop(maxLines)
+                minLines <= lineCount -> layout.height
                 else -> {
                     val lineHeight = with(params) {
                         (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
@@ -677,7 +677,6 @@ class TextLayout private constructor(
     ): Boolean =
         if (isLayoutChanged) {
             config.invoke(params)
-            Log.e("TAGTAG", "configure end ${System.nanoTime() / 1000}")
             true
         } else {
             val oldTextSize = params.paint.textSize
@@ -699,7 +698,6 @@ class TextLayout private constructor(
                         oldTypeface != params.paint.typeface
             (oldParams != params || isTextSizeChanged).also { isChanged ->
                 if (isChanged) isLayoutChanged = true
-                Log.e("TAGTAG", "configure end ${System.nanoTime() / 1000}")
             }
         }
 
@@ -715,8 +713,6 @@ class TextLayout private constructor(
     fun buildLayout(
         config: TextLayoutConfig? = null
     ): Boolean {
-        val time = System.nanoTime() / 1000
-        Log.e("TAGTAG", "start buildLayout $time")
         val isChanged = if (config != null) {
             configure(config)
         } else false
@@ -725,8 +721,6 @@ class TextLayout private constructor(
     }
 
     fun buildLayout(width: Int) {
-        val time = System.nanoTime() / 1000
-        Log.e("TAGTAG", "start buildLayout $time")
         if (isLayoutChanged) {
             params.layoutWidth = width
         } else {
@@ -811,10 +805,12 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
-            inspectHelper?.draw(this)
-            withTranslation(translationX + textPos.first, translationY + textPos.second) {
-                layout.draw(this)
+        canvas.withClip(rect) {
+            canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
+                inspectHelper?.draw(this)
+                withTranslation(translationX + textPos.first, translationY + textPos.second) {
+                    layout.draw(this)
+                }
             }
         }
     }
@@ -925,15 +921,9 @@ class TextLayout private constructor(
      * Созданная разметка помещается в кэш [cachedLayout].
      */
     private fun updateStaticLayout(): Layout {
-        val startTime = System.nanoTime()
-        Log.e("TAGTAG", "start updateStaticLayout ${startTime / 1000}")
         if (text !is Spannable) {
             boring = BoringLayout.isBoring(text, textPaint, boring)
         }
-        val boringResult = (System.nanoTime() - startTime) / 1000
-        val time2 = System.nanoTime() / 1000
-        Log.e("TAGTAG", "start LayoutConfigurator.createLayout $time2, boring $boringResult")
-        val createLayoutStartTime = System.nanoTime()
         val configurator = LayoutConfigurator(
             params.configuredText,
             params.paint,
@@ -953,16 +943,7 @@ class TextLayout private constructor(
             hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
         )
-        val resultConfigurator = (System.nanoTime() - createLayoutStartTime) / 1000
-        val configureStart = System.nanoTime()
         val layout = configurator.configure()
-        val configureResult = (System.nanoTime() - configureStart) / 1000
-        Log.e("TAGTAG", "LayoutConfigurator() $resultConfigurator")
-        Log.e("TAGTAG", "configurator.configure $configureResult")
-        val resultTime = (System.nanoTime() - createLayoutStartTime) / 1000
-        Log.e("TAGTAG", "createLayout $resultTime")
-
-        val alsoTime = System.nanoTime()
         layout.also {
             isLayoutChanged = false
             cachedLayout = it
@@ -970,8 +951,6 @@ class TextLayout private constructor(
             updateCachedTextWidth()
             updateFadeEdgeVisibility()
         }
-        val resultAlso = (System.nanoTime() - alsoTime) / 1000
-        Log.e("TAGTAG", "updateStaticLayout also time $resultAlso")
         return layout
     }
 

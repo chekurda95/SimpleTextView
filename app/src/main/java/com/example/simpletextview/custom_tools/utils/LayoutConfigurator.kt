@@ -40,18 +40,12 @@ class LayoutConfigurator constructor(
      * Применить настройки [config] для создания [StaticLayout].
      */
     internal fun configure(): Layout {
-        val time = System.nanoTime() / 1000
-        Log.e("TAGTAG", "start Layout.configure $time")
-        val mStartTime = System.nanoTime()
         configureMaxLines()
-        val mResultTime = (System.nanoTime() - mStartTime) / 1000
-        val wStartTime = System.nanoTime()
         configureWidth()
-        val wResultTime = (System.nanoTime() - wStartTime) / 1000
-        Log.e("TAGTAG", "configure maxLines = $mResultTime, width = $wResultTime")
-        return buildLayout().let { layout ->
+        return buildLayout()
+           /* .let { layout ->
             if (layout.lineCount <= maxLines) {
-                layout
+
             } else {
                 val lastLineIndex = maxLines - 1
                 val lineWidth = layout.getLineWidth(lastLineIndex)
@@ -61,7 +55,7 @@ class LayoutConfigurator constructor(
                     .apply { if (!text.hasSymbolEllipsize && ellipsize == TextUtils.TruncateAt.END) append(ELLIPSIS_CHAR) }
                 buildLayout(canContainUrl)
             }
-        }
+        }*/
     }
 
     /**
@@ -76,7 +70,7 @@ class LayoutConfigurator constructor(
                     0
                 )
             }
-            width == DEFAULT_WRAPPED_WIDTH || (maxLines == SINGLE_LINE && width == paint.getTextWidth(text)) -> {
+            width == DEFAULT_WRAPPED_WIDTH -> {
                 ceil(Layout.getDesiredWidth(text, paint)).toInt()
             }
             else -> {
@@ -149,18 +143,13 @@ class LayoutConfigurator constructor(
      * с оптимизацией переносов строк по всему абзацу.
      */
     @SuppressLint("WrongConstant", "Range")
-    private fun buildLayout(
-        isBreakHighQuality: Boolean = false
-    ): Layout {
-        val startTime = System.nanoTime()
+    private fun buildLayout(): Layout {
         val calculatedWidth = width + if (isNeedFade()) ADDITIONAL_WIDTH else 0
         val result = when {
             useDynamicLayout() -> buildDynamic(calculatedWidth)
             boring != null && boring!!.width <= calculatedWidth -> buildBoring(calculatedWidth)
             else -> buildStaticLayout(calculatedWidth)
         }
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "buildStatic = $resultTime")
         return result
     }
 
@@ -205,16 +194,18 @@ class LayoutConfigurator constructor(
 
     private fun buildStaticLayout(width: Int): Layout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+            val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
                 .setAlignment(alignment)
                 .setLineSpacing(spacingAdd, spacingMulti)
                 .setIncludePad(includeFontPad)
-                .setEllipsize(ellipsize)
-                .setEllipsizedWidth(width)
                 .setMaxLines(maxLines)
-                .setBreakStrategy(if (false) StaticLayout.BREAK_STRATEGY_HIGH_QUALITY else breakStrategy)
+                .setBreakStrategy(breakStrategy)
                 .setHyphenationFrequency(hyphenationFrequency)
-                .build()
+            if (ellipsize != null) {
+                builder.setEllipsize(ellipsize)
+                    .setEllipsizedWidth(width)
+            }
+            builder.build()
         } else {
             @Suppress("DEPRECATION")
             (StaticLayout(
