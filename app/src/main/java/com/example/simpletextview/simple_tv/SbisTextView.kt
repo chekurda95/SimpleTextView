@@ -427,42 +427,11 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val startTime = System.nanoTime()
-
-        val wStartTime = System.nanoTime()
-        val width = when (MeasureSpec.getMode(widthMeasureSpec)) {
-            MeasureSpec.EXACTLY -> MeasureSpec.getSize(widthMeasureSpec)
-            MeasureSpec.AT_MOST -> minOf(suggestedMinimumWidth, MeasureSpec.getSize(widthMeasureSpec))
-            else -> suggestedMinimumWidth
-        }
-        val wTime = (System.nanoTime() - wStartTime) / 1000
-
-        val cStartTime = System.nanoTime()
-        textLayout.buildLayout(width - paddingStart - paddingEnd)
-        val cTime = (System.nanoTime() - cStartTime) / 1000
-
-        val hStartTime = System.nanoTime()
-        val height = when (MeasureSpec.getMode(widthMeasureSpec)) {
-            MeasureSpec.EXACTLY -> MeasureSpec.getSize(widthMeasureSpec)
-            MeasureSpec.AT_MOST -> minOf(suggestedMinimumHeight, MeasureSpec.getSize(widthMeasureSpec))
-            else -> suggestedMinimumHeight
-        }
-        val hTime = (System.nanoTime() - hStartTime) / 1000
-
-        setMeasuredDimension(width, height)
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "Sbis onMeasure $resultTime, width = $wTime, conf = $cTime, height = $hTime")
-    }
-
-    /*override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val startTime = System.nanoTime()
         val width = measureDirection(widthMeasureSpec) { suggestedMinimumWidth }
-        textLayout.configure { layoutWidth = width - paddingStart - paddingEnd }
+        textLayout.buildLayout(width - paddingStart - paddingEnd)
         val height = measureDirection(heightMeasureSpec) { suggestedMinimumHeight }
         setMeasuredDimension(width, height)
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "Sbis onMeasure $resultTime")
-    }*/
+    }
 
     override fun getSuggestedMinimumWidth(): Int =
         (paddingStart + paddingEnd + textLayout.measureWidth())
@@ -479,10 +448,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        val startTime = System.nanoTime()
         internalLayout()
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "Sbis onLayout $resultTime")
     }
 
     private fun internalLayout() {

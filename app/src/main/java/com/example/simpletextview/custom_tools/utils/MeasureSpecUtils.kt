@@ -36,7 +36,7 @@ object MeasureSpecUtils {
      * @return размер стороны View в px.
      */
     @Px
-    fun measureDirection(measureSpec: Int, unspecifiedSize: () -> Int): Int =
+    inline fun measureDirection(measureSpec: Int, unspecifiedSize: () -> Int): Int =
         when (MeasureSpec.getMode(measureSpec)) {
             MeasureSpec.EXACTLY -> MeasureSpec.getSize(measureSpec)
             MeasureSpec.AT_MOST -> minOf(unspecifiedSize(), MeasureSpec.getSize(measureSpec))
