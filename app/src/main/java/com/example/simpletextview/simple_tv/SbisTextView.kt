@@ -511,7 +511,7 @@ open class SbisTextView : View, SbisTextViewApi {
                         else -> null
                     }
                 }
-            val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 0)
+            val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 2)
             val hyphenationFrequency = getInt(R.styleable.SbisTextView_android_hyphenationFrequency, 0)
             val isEnabled = getBoolean(R.styleable.SbisTextView_android_enabled, isEnabled)
 
@@ -599,8 +599,7 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun getLayoutAlignment(): Layout.Alignment =
         when (textAlignment) {
             TEXT_ALIGNMENT_GRAVITY -> {
-                when (gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
-                    Gravity.CENTER,
+                when (gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK) {
                     Gravity.CENTER_HORIZONTAL -> Layout.Alignment.ALIGN_CENTER
                     Gravity.RIGHT,
                     Gravity.END -> Layout.Alignment.ALIGN_OPPOSITE

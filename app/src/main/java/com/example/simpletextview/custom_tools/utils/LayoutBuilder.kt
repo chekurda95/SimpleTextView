@@ -79,9 +79,15 @@ class LayoutBuilder constructor(
     @SuppressLint("WrongConstant", "Range")
     private fun buildLayout(): Layout {
         val result = when {
-            text is Spannable -> buildDynamic()
-            boring != null -> buildBoring()
-            else -> buildStaticLayout()
+            text is Spannable -> {
+                buildDynamic()
+            }
+            boring != null && (ellipsize != null || boring!!.width <= layoutWidthByParams) -> {
+                buildBoring()
+            }
+            else -> {
+                buildStaticLayout()
+            }
         }
         return result
     }
