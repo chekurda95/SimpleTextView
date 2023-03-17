@@ -16,6 +16,12 @@ internal class TextLayoutBuildHelper(
         get() = fadingEdgeHelper.requiresFadingEdge && fadingEdgeHelper.fadeEdgeSize > 0
 
     /**
+     * Последний индекс символа в первой строке.
+     * Используется для точечной оптимизации создания многострочного [Layout] с длинным текстом.
+     */
+    var lineLastIndex: Int? = null
+
+    /**
      * Обновить разметку по набору параметров [params].
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
@@ -35,6 +41,7 @@ internal class TextLayoutBuildHelper(
             boringLayout = boringLayout,
             width = width,
             maxHeight = maxHeight,
+            lineLastIndex = lineLastIndex,
             paint = params.paint,
             alignment = params.alignment,
             ellipsize = params.ellipsize,
@@ -47,6 +54,7 @@ internal class TextLayoutBuildHelper(
             hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = useFadingEdge
         ).build().also {
+            lineLastIndex = null
             if (it is BoringLayout) boringLayout = it
             fadingEdgeHelper.updateFadeEdgeVisibility(width, params)
         }

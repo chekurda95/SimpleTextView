@@ -107,8 +107,8 @@ fun View.sp(@IntRange(from = 0) value: Int): Int =
 fun TextPaint.getTextWidth(text: CharSequence, start: Int = 0, end: Int = text.length): Int =
     measureText(text, start, end).toInt()
 
-fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Int {
-    if (maxWidth <= 0) return 0
+fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Pair<Int, Int> {
+    if (maxWidth <= 0) return 0 to 0
 
     val length = text.length
     return if (length > 20) {
@@ -121,14 +121,14 @@ fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Int {
             lastIndex = (i * step).coerceAtMost(length)
             sumWidth += measureText(text, startIndex, lastIndex)
             if (sumWidth >= maxWidth) {
-                return maxWidth
+                return maxWidth to lastIndex
             } else {
                 startIndex = lastIndex
             }
         }
-        sumWidth.toInt()
+        sumWidth.toInt() to lastIndex
     } else {
-        maxOf(getTextWidth(text), maxWidth)
+        maxOf(getTextWidth(text), maxWidth) to length
     }
 }
 

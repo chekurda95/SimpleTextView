@@ -29,11 +29,13 @@ class LayoutBuilder constructor(
     var highlights: TextHighlights? = null,
     var breakStrategy: Int = 0,
     var hyphenationFrequency: Int = 0,
-    var fadingEdge: Boolean = false
+    var fadingEdge: Boolean = false,
+    var lineLastIndex: Int? = null
 ) {
 
     private var maxLinesByParams: Int = 0
     private var layoutWidthByParams: Int = 0
+    private var textLength: Int = 0
 
     /**
      * Применить настройки [config] для создания [StaticLayout].
@@ -41,6 +43,7 @@ class LayoutBuilder constructor(
     fun build(): Layout {
         layoutWidthByParams = getLayoutWidthByParams()
         maxLinesByParams = getMaxLinesByParams()
+        textLength = getLengthByParams()
         return buildLayout()
     }
 
@@ -69,6 +72,13 @@ class LayoutBuilder constructor(
         }
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
+
+    private fun getLengthByParams(): Int =
+        if (text !is Spannable && lineLastIndex != null && maxLines > SINGLE_LINE) {
+            (lineLastIndex!! * maxLines).coerceAtMost(text.length)
+        } else {
+            text.length
+        }
 
     /**
      * Построить [StaticLayout] по текущим параметрам конфигуратора.
@@ -140,7 +150,7 @@ class LayoutBuilder constructor(
 
     private fun buildStaticLayout(): Layout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            StaticLayout.Builder.obtain(text, 0, text.length, paint, layoutWidthByParams)
+            StaticLayout.Builder.obtain(text, 0, textLength, paint, layoutWidthByParams)
                 .setAlignment(alignment)
                 .setLineSpacing(spacingAdd, spacingMulti)
                 .setIncludePad(includeFontPad)
@@ -157,7 +167,7 @@ class LayoutBuilder constructor(
             StaticLayout(
                 text,
                 0,
-                text.length,
+                textLength,
                 paint,
                 layoutWidthByParams,
                 alignment,

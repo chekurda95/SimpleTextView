@@ -191,7 +191,9 @@ internal class TextLayoutState(
         val resultText = text ?: this.text
         val horizontalPadding = padding.start + padding.end
         if (maxWidth != null) {
-            params.paint.getLimitedTextWidth(resultText, maxWidth - horizontalPadding)
+            val (width, lastIndex) = params.paint.getLimitedTextWidth(resultText, maxWidth - horizontalPadding)
+            if (text == null) layoutBuildHelper.lineLastIndex = lastIndex
+            width
         } else {
             paint.getTextWidth(resultText) + horizontalPadding
         }
