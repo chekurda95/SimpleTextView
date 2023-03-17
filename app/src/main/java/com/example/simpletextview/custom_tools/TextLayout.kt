@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
-import android.text.BoringLayout
 import android.text.Layout
 import android.text.Layout.Alignment
 import android.text.Spannable
@@ -40,8 +39,8 @@ import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
-import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
+import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
 import timber.log.Timber
 import java.lang.Integer.MAX_VALUE
 import kotlin.math.ceil
@@ -912,23 +911,15 @@ class TextLayout private constructor(
         drawableStateHelper.checkPressedState(ACTION_CANCEL, true)
     }
 
-    private var boring: BoringLayout.Metrics? = null
-    private var savedLayout: BoringLayout? = null
-
     /**
      * Обновить разметку по набору параметров [params].
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
      */
     private fun updateStaticLayout(): Layout {
-        if (text !is Spannable) {
-            boring = BoringLayout.isBoring(text, textPaint, boring)
-        }
-        val configurator = LayoutConfigurator(
+        val configurator = StaticLayoutConfigurator(
             params.configuredText,
             params.paint,
-            boring,
-            savedLayout,
             width = params.textWidth,
             alignment = params.alignment,
             ellipsize = params.ellipsize,
@@ -947,7 +938,6 @@ class TextLayout private constructor(
         layout.also {
             isLayoutChanged = false
             cachedLayout = it
-            if (it is BoringLayout) savedLayout = it
             updateCachedTextWidth()
             updateFadeEdgeVisibility()
         }

@@ -3,9 +3,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.*
-import android.text.BoringLayout
 import android.text.Layout
-import android.text.Spannable
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils.TruncateAt
@@ -20,7 +18,6 @@ import androidx.core.content.res.ResourcesCompat.ID_NULL
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
-import com.example.simpletextview.BuildConfig
 import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
 import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider
 import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
@@ -28,7 +25,6 @@ import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
 import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutBuildHelper
-import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutDrawableStateHelper
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutFadingEdgeHelper
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutInspectHelper
@@ -37,10 +33,7 @@ import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayout
 import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayoutStateReducer
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
-import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
-import timber.log.Timber
-import kotlin.math.roundToInt
 
 /**
  * Разметка для отображения текста.

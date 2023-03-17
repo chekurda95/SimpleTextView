@@ -4,7 +4,7 @@ import android.text.BoringLayout
 import android.text.Layout
 import android.text.Spannable
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
-import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
+import com.example.simpletextview.custom_tools.utils.LayoutBuilder
 
 internal class TextLayoutBuildHelper(
     private val fadingEdgeHelper: TextLayoutFadingEdgeHelper
@@ -29,7 +29,7 @@ internal class TextLayoutBuildHelper(
         if (text !is Spannable) {
             boring = BoringLayout.isBoring(text, params.paint, boring)
         }
-        return LayoutConfigurator(
+        return LayoutBuilder(
             text = text,
             boring = boring,
             boringLayout = boringLayout,
@@ -43,11 +43,10 @@ internal class TextLayoutBuildHelper(
             spacingMulti = params.spacingMulti,
             maxLines = params.maxLines,
             highlights = params.highlights,
-            canContainUrl = params.canContainUrl,
             breakStrategy = params.breakStrategy,
             hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = useFadingEdge
-        ).configure().also {
+        ).build().also {
             if (it is BoringLayout) boringLayout = it
             fadingEdgeHelper.updateFadeEdgeVisibility(width, params)
         }

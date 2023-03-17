@@ -43,7 +43,7 @@ class MetricsLayout @JvmOverloads constructor(
             Looper.getMainLooper().queue.addIdleHandler {
                 if (!wasLogged) {
                     val text = "full = ${onMeasureTimeMcs + onLayoutTimeMcs}, measure($measureCount) = $onMeasureTimeMcs, layout($layoutCount) = $onLayoutTimeMcs"
-                    Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
                     wasLogged = true
                 }
                 return@addIdleHandler false

@@ -30,7 +30,6 @@ internal data class TextLayoutParams(
     val highlights: TextHighlights? = null,
     val breakStrategy: Int = 0,
     val hyphenationFrequency: Int = 0,
-    val canContainUrl: Boolean = false,
     val needHighWidthAccuracy: Boolean = false
 )
 

@@ -23,7 +23,7 @@ internal class TextLayoutState(
      * Минимальная высота текста по заданным [TextLayoutParams.minLines].
      */
     @get:Px
-    private val minHeightByLines: Int by lazy {
+    private val minHeightByLines: Int by lazy(LazyThreadSafetyMode.NONE) {
         val layoutHeight = when {
             params.minLines <= 0 || !isVisible -> 0
             params.maxLines <= layout.lineCount -> layout.getLineTop(params.maxLines)
@@ -41,7 +41,7 @@ internal class TextLayoutState(
     /**
      * Сконфигурированный текст с учетом настроек параметров.
      */
-    private val configuredText: CharSequence by lazy {
+    private val configuredText: CharSequence by lazy(LazyThreadSafetyMode.NONE) {
         with(params) {
             when {
                 maxLength == Int.MAX_VALUE || maxLength < 0 -> text
@@ -56,7 +56,7 @@ internal class TextLayoutState(
      * Ширина текста.
      */
     @get:Px
-    private val textWidth: Int by lazy {
+    private val textWidth: Int by lazy(LazyThreadSafetyMode.NONE) {
         with(params) {
             val layoutWidth = layoutWidth
             if (layoutWidth != null) {
@@ -71,7 +71,7 @@ internal class TextLayoutState(
      * Ширина текста с учетом ограничений.
      */
     @get:Px
-    private val limitedTextWidth: Int by lazy {
+    private val limitedTextWidth: Int by lazy(LazyThreadSafetyMode.NONE) {
         with(params) {
             val horizontalPadding = padding.start + padding.end
             val text = configuredText
@@ -92,7 +92,7 @@ internal class TextLayoutState(
      * Максимальная высота текста.
      */
     @get:Px
-    private val layoutMaxHeight: Int? by lazy {
+    private val layoutMaxHeight: Int? by lazy(LazyThreadSafetyMode.NONE) {
         with(params) {
             maxHeight?.let { maxOf(it - padding.top - padding.bottom, 0) }
         }
@@ -101,7 +101,7 @@ internal class TextLayoutState(
     /**
      * Разметка, построенная по текущим параметрам [params].
      */
-    val layout: Layout by lazy {
+    val layout: Layout by lazy(LazyThreadSafetyMode.NONE) {
         layoutBuildHelper.buildLayout(
             text = configuredText,
             width = textWidth,
@@ -113,7 +113,7 @@ internal class TextLayoutState(
     /**
      * Видимость разметки.
      */
-    val isVisible: Boolean by lazy {
+    val isVisible: Boolean by lazy(LazyThreadSafetyMode.NONE) {
         params.isVisible.let {
             if (!params.isVisibleWhenBlank) it && params.text.isNotBlank()
             else it
@@ -128,7 +128,7 @@ internal class TextLayoutState(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val width: Int by lazy {
+    val width: Int by lazy(LazyThreadSafetyMode.NONE) {
         val layoutWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
             layout.getLineWidth(0).roundToInt()
         } else {
@@ -152,7 +152,7 @@ internal class TextLayoutState(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val height: Int by lazy {
+    val height: Int by lazy(LazyThreadSafetyMode.NONE) {
         when {
             !isVisible -> 0
             width != 0 -> {
