@@ -74,8 +74,8 @@ class LayoutBuilder constructor(
     }
 
     private fun getLengthByParams(): Int =
-        if (text !is Spannable && lineLastIndex != null && maxLines > SINGLE_LINE) {
-            (lineLastIndex!! * maxLines).coerceAtMost(text.length)
+        if (text !is Spannable && lineLastIndex != null && maxLines != Int.MAX_VALUE) {
+            ceil(lineLastIndex!! * 1.2f * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
         }
@@ -106,7 +106,7 @@ class LayoutBuilder constructor(
         text is Spannable
 
     private fun useBoring() =
-        boring != null &&
+        lineLastIndex == null && boring != null &&
             ((ellipsize != null && maxLinesByParams == SINGLE_LINE) || boring!!.width <= layoutWidthByParams)
 
     private fun buildDynamic(): Layout =

@@ -32,7 +32,7 @@ internal class TextLayoutBuildHelper(
         maxHeight: Int?,
         params: TextLayoutParams
     ): Layout {
-        if (text !is Spannable) {
+        if (text !is Spannable && lineLastIndex == null) {
             boring = BoringLayout.isBoring(text, params.paint, boring)
         }
         return LayoutBuilder(
