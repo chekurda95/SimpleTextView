@@ -427,7 +427,8 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = measureDirection(widthMeasureSpec) { suggestedMinimumWidth }
-        textLayout.buildLayout { layoutWidth = width - paddingStart - paddingEnd }
+        val horizontalPadding = paddingStart + paddingEnd
+        textLayout.buildLayout { layoutWidth = width - horizontalPadding }
         val height = measureDirection(heightMeasureSpec) { suggestedMinimumHeight }
         setMeasuredDimension(width, height)
     }
