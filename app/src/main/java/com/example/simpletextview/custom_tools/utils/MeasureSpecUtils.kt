@@ -36,10 +36,17 @@ object MeasureSpecUtils {
      * @return размер стороны View в px.
      */
     @Px
-    inline fun measureDirection(measureSpec: Int, unspecifiedSize: () -> Int): Int =
+    inline fun measureDirection(measureSpec: Int, unspecifiedSize: (Int?) -> Int): Int =
         when (MeasureSpec.getMode(measureSpec)) {
-            MeasureSpec.EXACTLY -> MeasureSpec.getSize(measureSpec)
-            MeasureSpec.AT_MOST -> minOf(unspecifiedSize(), MeasureSpec.getSize(measureSpec))
-            else -> unspecifiedSize()
+            MeasureSpec.EXACTLY -> {
+                MeasureSpec.getSize(measureSpec)
+            }
+            MeasureSpec.AT_MOST -> {
+                val maxWidth = MeasureSpec.getSize(measureSpec)
+                minOf(unspecifiedSize(maxWidth), maxWidth)
+            }
+            else -> {
+                unspecifiedSize(null)
+            }
         }
 }

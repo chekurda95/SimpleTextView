@@ -9,6 +9,7 @@ import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutBuildHelper
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
+import com.example.simpletextview.custom_tools.utils.getLimitedTextWidth
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -56,14 +57,11 @@ internal class TextLayoutState(
      * Ширина текста.
      */
     @get:Px
-    private val textWidth: Int by lazy(LazyThreadSafetyMode.NONE) {
+    private val textWidthByParams: Int by lazy(LazyThreadSafetyMode.NONE) {
         with(params) {
-            val layoutWidth = layoutWidth
-            if (layoutWidth != null) {
-                maxOf(layoutWidth - padding.start - padding.end, 0)
-            } else {
-                limitedTextWidth
-            }
+            layoutWidth?.let { width ->
+                maxOf(width - padding.start - padding.end, 0)
+            } ?: limitedTextWidth
         }
     }
 
@@ -104,7 +102,7 @@ internal class TextLayoutState(
     val layout: Layout by lazy(LazyThreadSafetyMode.NONE) {
         layoutBuildHelper.buildLayout(
             text = configuredText,
-            width = textWidth,
+            width = textWidthByParams,
             maxHeight = layoutMaxHeight,
             params = params
         ).also { drawParams.drawingLayout = it }
@@ -186,9 +184,17 @@ internal class TextLayoutState(
      * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
     @Px
-    fun getDesiredWidth(text: CharSequence? = null): Int = with(params) {
+    fun getDesiredWidth(
+        text: CharSequence? = null,
+        maxWidth: Int? = null
+    ): Int = with(params) {
         val resultText = text ?: this.text
-        return padding.start + paint.getTextWidth(resultText) + padding.end
+        val horizontalPadding = padding.start + padding.end
+        if (maxWidth != null) {
+            params.paint.getLimitedTextWidth(resultText, maxWidth - horizontalPadding)
+        } else {
+            paint.getTextWidth(resultText) + horizontalPadding
+        }
     }
 
     /**

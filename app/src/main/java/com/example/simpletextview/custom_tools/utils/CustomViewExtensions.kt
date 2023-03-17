@@ -104,8 +104,33 @@ fun View.sp(@IntRange(from = 0) value: Int): Int =
  * Получить ширину текста для данного [TextPaint].
  */
 @Px
-fun TextPaint.getTextWidth(text: CharSequence): Int =
-    measureText(text, 0, text.length).toInt()
+fun TextPaint.getTextWidth(text: CharSequence, start: Int = 0, end: Int = text.length): Int =
+    measureText(text, start, end).toInt()
+
+fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Int {
+    if (maxWidth <= 0) return 0
+
+    val length = text.length
+    return if (length > 20) {
+        val step = 10
+        val steps = ceil(length / step.toFloat()).toInt()
+        var sumWidth = 0f
+        var startIndex = 0
+        var lastIndex = 0
+        for (i in 1..steps) {
+            lastIndex = (i * step).coerceAtMost(length)
+            sumWidth += measureText(text, startIndex, lastIndex)
+            if (sumWidth >= maxWidth) {
+                return maxWidth
+            } else {
+                startIndex = lastIndex
+            }
+        }
+        sumWidth.toInt()
+    } else {
+        maxOf(getTextWidth(text), maxWidth)
+    }
+}
 
 /**
  * Получить высоту одной строчки текста для данного [TextPaint].

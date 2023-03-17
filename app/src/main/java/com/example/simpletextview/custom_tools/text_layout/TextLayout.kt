@@ -563,8 +563,11 @@ class TextLayout private constructor(
      * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
     @Px
-    fun getDesiredWidth(text: CharSequence? = null): Int =
-        state.getDesiredWidth(text)
+    fun getDesiredWidth(
+        text: CharSequence? = null,
+        maxWidth: Int? = null
+    ): Int =
+        state.getDesiredWidth(text, maxWidth)
 
     /**
      * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
