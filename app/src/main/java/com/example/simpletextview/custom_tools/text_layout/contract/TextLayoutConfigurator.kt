@@ -19,7 +19,7 @@ interface TextLayoutConfigurator {
     var text: CharSequence
     @get:Px var textSize: Float
     @get:ColorInt var color: Int
-    var typeface: Typeface
+    var typeface: Typeface?
     var ellipsize: TextUtils.TruncateAt?
     var highlights: TextHighlights?
     var alignment: Layout.Alignment

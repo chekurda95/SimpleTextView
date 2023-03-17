@@ -5,9 +5,9 @@ import android.view.View
 import android.view.View.AccessibilityDelegate
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.content.res.ResourcesCompat.ID_NULL
+import com.example.simpletextview.custom_tools.text_layout.TextLayout
 import org.json.JSONArray
 import org.json.JSONObject
-import com.example.simpletextview.custom_tools.TextLayout
 
 /**
  * Вспомогательный класс для автотестов кастомных [View], использующих компонент текстовой разметки [TextLayout].

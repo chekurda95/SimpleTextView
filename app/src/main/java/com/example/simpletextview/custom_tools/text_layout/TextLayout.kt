@@ -195,8 +195,11 @@ class TextLayout private constructor(
      */
     private var state: TextLayoutState = reducer.reduceInitialState(params, config)
 
-    private val params: TextLayoutParams by state::params
-    private val drawParams: TextLayoutDrawParams by state::drawParams
+    private val params: TextLayoutParams
+        get() = state.params
+
+    private val drawParams: TextLayoutDrawParams
+        get() = state.drawParams
 
     /**
      * Идентификатор разметки.
@@ -207,33 +210,39 @@ class TextLayout private constructor(
     /**
      * Текст разметки.
      */
-    val text: CharSequence by params::text
+    val text: CharSequence
+        get() = params.text
 
     /**
      * Получить текстовую разметку.
      * Имеет ленивую инициализацию.
      */
-    val layout: Layout by state::layout
+    val layout: Layout
+        get() = state.layout
 
     /**
      * Краска текста разметки.
      */
-    val textPaint: TextPaint by params::paint
+    val textPaint: TextPaint
+        get() = params.paint
 
     /**
      * Видимость разметки.
      */
-    val isVisible: Boolean by state::isVisible
+    val isVisible: Boolean
+        get() = state.isVisible
 
     /**
      * Максимальное количество строк.
      */
-    val maxLines: Int by params::maxLines
+    val maxLines: Int
+        get() = params.maxLines
 
     /**
      * Минимальное количество строк.
      */
-    val minLines: Int by params::minLines
+    val minLines: Int
+        get() = params.minLines
 
     /**
      * Количество строк текста в [TextLayout].
@@ -242,55 +251,64 @@ class TextLayout private constructor(
      * или если [params] разметки были изменены путем вызова [configure],
      * в иных случаях лишнего построения не произойдет.
      */
-    val lineCount: Int by layout::lineCount
+    val lineCount: Int
+        get() = state.layout.lineCount
 
     /**
      * Левая позиция разметки, установленная в [TextLayout.layout].
      */
     @get:Px
-    val left: Int by drawParams.rect::left
+    val left: Int
+        get() = drawParams.rect.left
 
     /**
      * Верхняя позиция разметки, установленная в [TextLayout.layout].
      */
     @get:Px
-    val top: Int by drawParams.rect::top
+    val top: Int
+        get() = drawParams.rect.top
 
     /**
      * Правая позиция разметки с учетом внутренних паддингов [left] + [width].
      */
     @get:Px
-    val right: Int by drawParams.rect::right
+    val right: Int
+        get() = drawParams.rect.right
 
     /**
      * Нижняя позиция разметки с учетом внутренний паддингов [top] + [height].
      */
     @get:Px
-    val bottom: Int by drawParams.rect::bottom
+    val bottom: Int
+        get() = drawParams.rect.bottom
 
     /**
      * Левый внутренний оступ разметки.
      */
     @get:Px
-    val paddingStart: Int by params.padding::start
+    val paddingStart: Int
+        get() = params.padding.start
 
     /**
      * Верхний внутренний оступ разметки.
      */
     @get:Px
-    val paddingTop: Int by params.padding::top
+    val paddingTop: Int
+        get() = params.padding.top
 
     /**
      * Првый внутренний оступ разметки.
      */
     @get:Px
-    val paddingEnd: Int by params.padding::end
+    val paddingEnd: Int
+        get() = params.padding.end
 
     /**
      * Нижний внутренний оступ разметки.
      */
     @get:Px
-    val paddingBottom: Int by params.padding::bottom
+    val paddingBottom: Int
+        get() = params.padding.bottom
 
     /**
      * Ширина всей разметки.
@@ -300,7 +318,8 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val width: Int by state::width
+    val width: Int
+        get() = state.width
 
     /**
      * Высота всей разметки.
@@ -310,39 +329,61 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val height: Int by state::height
+    val height: Int
+        get() = state.height
 
     /**
      * Базовая линия текстовой разметки.
      */
     @get:Px
-    val baseline: Int by state::baseline
+    val baseline: Int
+        get() = state.baseline
 
     /**
      * Прозрачность текста разметки.
      */
     @get:FloatRange(from = 0.0, to = 1.0)
-    var layoutAlpha: Float by state::layoutAlpha
+    var layoutAlpha: Float
+        get() = state.layoutAlpha
+        set(value) {
+            state.layoutAlpha = value
+        }
 
     /**
      * Поворот текста вокруг центра на угол в градусах.
      */
-    var rotation: Float by drawParams::rotation
+    var rotation: Float
+        get() = drawParams.rotation
+        set(value) {
+            drawParams.rotation = value
+        }
 
     /**
      * Смещение отрисовки разметки по оси X.
      */
-    var translationX: Float by drawParams::rotation
+    var translationX: Float
+        get() = drawParams.translationX
+        set(value) {
+            drawParams.translationX = value
+        }
 
     /**
      * Смещение отрисовки разметки по оси Y.
      */
-    var translationY: Float by drawParams::rotation
+    var translationY: Float
+        get() = drawParams.translationY
+        set(value) {
+            drawParams.translationY = value
+        }
 
     /**
      * Признак необходимости показа затемнения текста при сокращении.
      */
-    var requiresFadingEdge: Boolean by fadingEdgeHelper::requiresFadingEdge
+    var requiresFadingEdge: Boolean
+        get() = fadingEdgeHelper.requiresFadingEdge
+        set(value) {
+            fadingEdgeHelper.requiresFadingEdge = value
+        }
 
     /**
      * Ширина затенения текста, если он не помещается в разметку.
@@ -366,7 +407,11 @@ class TextLayout private constructor(
      * Для работы [ColorStateList] необходимо сделать разметку кликабельной [makeClickable],
      * а также доставлять события касаний с помощью [TextLayoutTouchManager] или самостоятельно в метод [onTouch].
      */
-    var colorStateList: ColorStateList? by drawableStateHelper::colorStateList
+    var colorStateList: ColorStateList?
+        get() = drawableStateHelper.colorStateList
+        set(value) {
+            drawableStateHelper.colorStateList = value
+        }
 
     /**
      * Установить/получить состояние доступности тестовой разметки.
@@ -377,46 +422,63 @@ class TextLayout private constructor(
      * @see setOnClickListener
      * @see setOnLongClickListener
      */
-    var isEnabled: Boolean by drawableStateHelper::isEnabled
+    var isEnabled: Boolean
+        get() = drawableStateHelper.isEnabled
+        set(value) {
+            drawableStateHelper.isEnabled = value
+        }
 
     /**
      * Установить/получить нажатое состояние тестовой разметки.
      *
      * @see colorStateList
      */
-    var isPressed: Boolean by drawableStateHelper::isPressed
+    var isPressed: Boolean
+        get() = drawableStateHelper.isPressed
+        set(value) {
+            drawableStateHelper.isPressed = value
+        }
 
     /**
      * Установить/получить состояние выбранности текстовой разметки.
      *
      * @see colorStateList
      */
-    var isSelected: Boolean by drawableStateHelper::isSelected
+    var isSelected: Boolean
+        get() = drawableStateHelper.isSelected
+        set(value) {
+            drawableStateHelper.isSelected = value
+        }
 
     /**
      * @see [TextLayoutParams.ellipsize]
      */
-    val ellipsize: TruncateAt? by params::ellipsize
+    val ellipsize: TruncateAt?
+        get() = params.ellipsize
 
     /**
      * @see [Layout.getEllipsizedWidth]
      */
-    val ellipsizedWidth: Int by layout::ellipsizedWidth
+    val ellipsizedWidth: Int
+        get() = layout.ellipsizedWidth
 
     /**
      * @see [TextLayoutParams.includeFontPad]
      */
-    val includeFontPad: Boolean by params::includeFontPad
+    val includeFontPad: Boolean
+        get() = params.includeFontPad
 
     /**
      * @see [TextLayoutParams.breakStrategy]
      */
-    val breakStrategy: Int by params::breakStrategy
+    val breakStrategy: Int
+        get() = params.breakStrategy
 
     /**
      * @see [TextLayoutParams.hyphenationFrequency]
      */
-    val hyphenationFrequency: Int by params::hyphenationFrequency
+    val hyphenationFrequency: Int
+        get() = params.hyphenationFrequency
 
     /**
      * Настроить разметку.

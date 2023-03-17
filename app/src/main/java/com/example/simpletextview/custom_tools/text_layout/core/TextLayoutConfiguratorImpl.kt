@@ -19,8 +19,12 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
     private var isPaddingParamsChanged: Boolean = false
     private var isVisibilityParamsChanged: Boolean = false
     private var isDrawingParamsChanged: Boolean = false
-    private var isPaintAlphaChanged: Boolean = false
+
     private var isPaintChanged: Boolean = false
+    private var isPaintAlphaChanged: Boolean = false
+    private var isPaintLetterSpacingChanged: Boolean = false
+    private var isPaintColorChanged: Boolean = false
+    private var isPaintTextSizeChanged: Boolean = false
 
     // region isTextParamsChanged
 
@@ -35,8 +39,9 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
     @Px
     override var textSize: Float = params.paint.textSize
         set(value) {
-            if (!isTextParamsChanged) {
-                isTextParamsChanged = field != value
+            if (!isPaintTextSizeChanged && field != value) {
+                isPaintTextSizeChanged = true
+                isTextParamsChanged = true
             }
             field = value
         }
@@ -108,7 +113,6 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
     override var paint: TextPaint = params.paint
         set(value) {
             isPaintChanged = true
-            isPaintAlphaChanged = true
             if (field.textSize != value.textSize) {
                 isTextParamsChanged = true
                 field = value
@@ -137,7 +141,7 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
             field = value
         }
 
-    override var typeface: Typeface = params.paint.typeface
+    override var typeface: Typeface? = params.paint.typeface
         set(value) {
             if (!isTextParamsChanged) {
                 isTextParamsChanged = field != value
@@ -147,8 +151,9 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
 
     override var letterSpacing: Float = params.paint.letterSpacing
         set(value) {
-            if (!isTextParamsChanged) {
-                isTextParamsChanged = field != value
+            if (!isPaintLetterSpacingChanged && field != value) {
+                isPaintLetterSpacingChanged = true
+                isTextParamsChanged = true
             }
             field = value
         }
@@ -287,16 +292,17 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
 
     @ColorInt override var color: Int = params.paint.color
         set(value) {
-            if (!isDrawingParamsChanged) {
-                isDrawingParamsChanged = field != value
+            if (!isPaintColorChanged && field != value) {
+                isPaintColorChanged = true
+                isDrawingParamsChanged = true
             }
             field = value
         }
 
     override var alpha: Int = params.paint.alpha
         set(value) {
-            if (!isPaintAlphaChanged) {
-                isPaintAlphaChanged = field != value
+            if (!isPaintAlphaChanged && field != value) {
+                isPaintAlphaChanged = true
                 isDrawingParamsChanged = true
             }
             field = value
@@ -306,11 +312,10 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
 
     fun configure(): TextLayoutConfiguratorResult {
         val newPaint = paint.also {
-            if (isPaintChanged) return@also
-            it.color = color
-            it.alpha = alpha
-            it.textSize = textSize
-            it.letterSpacing = letterSpacing
+            if (isPaintColorChanged) it.color = color
+            if (isPaintAlphaChanged) it.alpha = alpha
+            if (isPaintTextSizeChanged) it.textSize = textSize
+            if (isPaintLetterSpacingChanged) it.letterSpacing = letterSpacing
         }
         val params = TextLayoutParams(
             text = text,
@@ -344,7 +349,7 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
             isTextParamsChanged = isTextParamsChanged,
             isPaddingParamsChanged = isPaddingParamsChanged,
             isVisibilityParamsChanged = isVisibilityParamsChanged,
-            isPaintAlphaChanged = isPaintAlphaChanged,
+            isPaintAlphaChanged = isPaintAlphaChanged || isPaintChanged || isPaintColorChanged,
             isDrawingParamsChanged = isDrawingParamsChanged
         )
         return params to diff

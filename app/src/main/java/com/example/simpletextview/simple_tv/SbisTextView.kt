@@ -14,7 +14,6 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.method.TransformationMethod
 import android.util.AttributeSet
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -27,8 +26,8 @@ import androidx.core.content.withStyledAttributes
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
 import com.example.simpletextview.R
-import com.example.simpletextview.custom_tools.TextLayout
-import com.example.simpletextview.custom_tools.TextLayoutConfig
+import com.example.simpletextview.custom_tools.text_layout.TextLayout
+import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDirection
 import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
@@ -428,7 +427,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = measureDirection(widthMeasureSpec) { suggestedMinimumWidth }
-        textLayout.buildLayout(width - paddingStart - paddingEnd)
+        textLayout.buildLayout { layoutWidth = width - paddingStart - paddingEnd }
         val height = measureDirection(heightMeasureSpec) { suggestedMinimumHeight }
         setMeasuredDimension(width, height)
     }
