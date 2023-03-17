@@ -1,4 +1,4 @@
-package com.example.simpletextview.custom_tools.text_layout.contract
+package com.example.simpletextview.custom_tools.text_layout.core.state.data
 
 import android.text.Layout
 import androidx.annotation.Px

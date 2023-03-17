@@ -26,13 +26,19 @@ import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider
 import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
 import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
-import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutPadding
-import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutParams
+import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
+import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfigurator
+import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutConfiguratorImpl
+import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutPadding
 import com.example.simpletextview.custom_tools.utils.getTextWidth
-import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutDrawableStateHelper
-import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutFadingEdgeHelper
-import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutInspectHelper
-import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutTouchHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutDrawableStateHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutFadingEdgeHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutInspectHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutTouchHelper
+import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayoutState
+import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayoutStateReducer
+import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
+import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
 import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import timber.log.Timber
@@ -64,7 +70,7 @@ import kotlin.math.roundToInt
  * @author vv.chekurda
  */
 class TextLayout private constructor(
-    private val params: TextLayoutParams,
+    params: TextLayoutParams,
     config: TextLayoutConfig? = null
 ) : View.OnTouchListener {
 
@@ -73,8 +79,6 @@ class TextLayout private constructor(
      * @see TextLayoutParams
      */
     constructor(config: TextLayoutConfig? = null) : this(TextLayoutParams(), config)
-
-    init { config?.invoke(params) }
 
     /**
      * Слушатель кликов по текстовой разметке.
@@ -150,12 +154,10 @@ class TextLayout private constructor(
                     isVisible = style.isVisible ?: isVisible
                     if (obtainPadding) {
                         style.paddingStyle?.also { paddingStyle ->
-                            padding = TextLayoutPadding(
-                                paddingStyle.paddingStart,
-                                paddingStyle.paddingTop,
-                                paddingStyle.paddingEnd,
-                                paddingStyle.paddingBottom
-                            )
+                            paddingStart = paddingStyle.paddingStart
+                            paddingTop = paddingStyle.paddingTop
+                            paddingEnd = paddingStyle.paddingEnd
+                            paddingBottom = paddingStyle.paddingBottom
                         }
                     }
                     postConfig?.invoke(this)
@@ -164,10 +166,23 @@ class TextLayout private constructor(
     }
 
     /**
+     * Обработчик изменений состояний [state].
+     */
+    private val reducer = TextLayoutStateReducer()
+
+    /**
+     * Состояние компонента [TextLayout].
+     */
+    private var state: TextLayoutState = reducer.reduceInitialState(params, config)
+
+    private val params: TextLayoutParams by state::params
+    private val drawParams: TextLayoutDrawParams by state::drawParams
+
+    /**
      * Вспомогательная реализация для управления рисуемыми состояниями текстовой разметки.
      * @see colorStateList
      */
-    private val drawableStateHelper = TextLayoutDrawableStateHelper(params.paint)
+    private val drawableStateHelper = TextLayoutDrawableStateHelper(state.params.paint)
 
     /**
      * Вспомогательная реализация для обработки событий касаний по текстовой разметке.
@@ -432,33 +447,27 @@ class TextLayout private constructor(
      * Прозрачность текста разметки.
      */
     @get:FloatRange(from = 0.0, to = 1.0)
-    var alpha: Float = 1f
-        set(value) {
-            field = value
-            textPaint.alpha = (value * textColorAlpha).toInt()
-        }
+    var layoutAlpha: Float by state::layoutAlpha
 
     /**
      * Поворот текста вокруг центра на угол в градусах.
      */
-    var rotation = 0f
+    var rotation: Float by drawParams::rotation
 
     /**
      * Смещение отрисовки разметки по оси X.
      */
-    var translationX: Float = 0f
+    var translationX: Float by drawParams::rotation
 
     /**
      * Смещение отрисовки разметки по оси Y.
      */
-    var translationY: Float = 0f
+    var translationY: Float by drawParams::rotation
 
     /**
      * Признак необходимости показа затемнения текста при сокращении.
      */
-    var requiresFadingEdge: Boolean
-        get() = fadingEdgeHelper.requiresFadingEdge
-        set(value) { fadingEdgeHelper.requiresFadingEdge = value }
+    var requiresFadingEdge: Boolean by fadingEdgeHelper::requiresFadingEdge
 
     /**
      * Ширина затенения текста, если он не помещается в разметку.
@@ -567,8 +576,15 @@ class TextLayout private constructor(
      * @param config настройка параметров текстовой разметки.
      * @return новый текстовая разметка с копированными параметрами текущей разметки.
      */
-    fun copy(config: TextLayoutConfig? = null): TextLayout =
-        TextLayout(params.copyParams(), config)
+    fun copy(config: TextLayoutConfig? = null): TextLayout {
+        val newPaint = SimpleTextPaint {
+            typeface = textPaint.typeface
+            textSize = textPaint.textSize
+            color = textPaint.color
+            letterSpacing = textPaint.letterSpacing
+        }
+        return TextLayout(state.params.copy(paint = newPaint), config)
+    }
 
     /**
      * Настроить разметку.
@@ -585,6 +601,7 @@ class TextLayout private constructor(
         config: TextLayoutConfig
     ): Boolean {
         val isChanged = if (isLayoutChanged) {
+            TextLayoutConfiguratorImpl(params).apply(config).configure()
             config.invoke(params)
             true
         } else {
@@ -880,11 +897,6 @@ class TextLayout private constructor(
         }
     }
 }
-
-/**
- * Настройка для параметров [TextLayout.TextLayoutParams].
- */
-typealias TextLayoutConfig = TextLayoutParams.() -> Unit
 
 /**
  * Мод активации отладочных границ [TextLayout].

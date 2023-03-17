@@ -1,4 +1,4 @@
-package com.example.simpletextview.custom_tools.text_layout.core
+package com.example.simpletextview.custom_tools.text_layout.core.helpers
 
 import android.content.res.ColorStateList
 import android.text.TextPaint

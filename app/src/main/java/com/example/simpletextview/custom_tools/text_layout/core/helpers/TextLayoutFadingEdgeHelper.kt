@@ -1,4 +1,4 @@
-package com.example.simpletextview.custom_tools.text_layout.core
+package com.example.simpletextview.custom_tools.text_layout.core.helpers
 
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,7 +10,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.Shader
 import android.text.TextUtils
-import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutParams
+import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
 
 internal class TextLayoutFadingEdgeHelper {
 
