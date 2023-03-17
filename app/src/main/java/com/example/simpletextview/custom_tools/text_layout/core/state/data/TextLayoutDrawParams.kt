@@ -1,12 +1,19 @@
 package com.example.simpletextview.custom_tools.text_layout.core.state.data
 
+import android.graphics.Rect
 import android.text.Layout
 import androidx.annotation.FloatRange
+import com.example.simpletextview.custom_tools.text_layout.TextLayout
 import com.example.simpletextview.custom_tools.utils.PAINT_MAX_ALPHA
 
 internal class TextLayoutDrawParams {
 
     var drawingLayout: Layout? = null
+
+    /**
+     * Координаты границ [TextLayout], полученные в [TextLayout.layout].
+     */
+    var rect = Rect()
 
     /**
      * Прозрачность текста разметки.

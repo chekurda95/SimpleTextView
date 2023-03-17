@@ -27,7 +27,7 @@ internal class TextLayoutFadingEdgeHelper {
     /**
      * Признак необходимости затенения каря текста, когда он не помещается в рзметку
      */
-    var isFadeEdgeVisible: Boolean = false
+    var drawFadingEdge: Boolean = false
 
     /**
      * Признак необходимости показа затемнения текста при сокращении.
@@ -45,15 +45,15 @@ internal class TextLayoutFadingEdgeHelper {
         }
 
     /**
-     * Обновить признак затенения каря для слишком длинного текста [isFadeEdgeVisible].
+     * Обновить признак затенения каря для слишком длинного текста [drawFadingEdge].
      */
-    fun updateFadeEdgeVisibility(params: TextLayoutParams) {
-        isFadeEdgeVisible = requiresFadingEdge && fadeEdgeSize > 0
+    fun updateFadeEdgeVisibility(textWidth: Int, params: TextLayoutParams) {
+        drawFadingEdge = requiresFadingEdge && fadeEdgeSize > 0
                 && params.maxLines == 1
                 && params.text != TextUtils.ellipsize(
             params.text,
             params.paint,
-            params.textWidth.toFloat(),
+            textWidth.toFloat(),
             TextUtils.TruncateAt.END
         )
     }

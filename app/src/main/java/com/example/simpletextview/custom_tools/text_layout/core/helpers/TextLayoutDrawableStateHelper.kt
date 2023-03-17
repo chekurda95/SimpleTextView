@@ -11,7 +11,7 @@ import androidx.annotation.AttrRes
  * Вспомогательный класс для управления рисуемыми состояниями текстовой разметки.
  * @see colorStateList
  */
-internal class TextLayoutDrawableStateHelper(var textPaint: TextPaint) {
+internal class TextLayoutDrawableStateHelper {
 
     /**
      * Список текущих рисуемых состояний текстовой разметки.
@@ -23,6 +23,11 @@ internal class TextLayoutDrawableStateHelper(var textPaint: TextPaint) {
      * Действие отмены нажатого рисуемого состояния.
      */
     private val cancelPressedCallback = Runnable { isPressed = false }
+
+    /**
+     * Текущий [TextPaint] с которым рисуется разметка.
+     */
+    lateinit var textPaint: TextPaint
 
     /**
      * Получить состояние нажатости.

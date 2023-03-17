@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.text.Layout
 import com.example.simpletextview.custom_tools.text_layout.TextLayout
+import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
 
 /**
  * Вспомогательный класс для отладки текстовой разметки.
@@ -19,7 +20,7 @@ internal class TextLayoutInspectHelper {
     /**
      * Краска линии границы по периметру [TextLayout].
      */
-    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.RED
         style = Paint.Style.STROKE
     }
@@ -27,27 +28,24 @@ internal class TextLayoutInspectHelper {
     /**
      * Краска внутренних отступов [TextLayout].
      */
-    val paddingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val paddingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.YELLOW
         style = Paint.Style.FILL
     }
-    val borderPath = Path()
-    val borderRectF = RectF()
-    val paddingPath = Path()
-    val textBackgroundPath = Path()
+    private val borderPath = Path()
+    private val borderRectF = RectF()
+    private val paddingPath = Path()
+    private val textBackgroundPath = Path()
 
     /**
      * Обновить информацию о разметке.
      */
-    fun updateInfo(
-        layout: Layout,
-        rect: Rect,
-        textPos: Pair<Float, Float>
-    ) {
+    fun updateInfo(drawParams: TextLayoutDrawParams) {
         borderPath.reset()
         textBackgroundPath.reset()
         paddingPath.reset()
 
+        val rect = drawParams.rect
         borderRectF.set(
             rect.left.toFloat() + ONE_PX,
             rect.top.toFloat() + ONE_PX,
@@ -56,11 +54,13 @@ internal class TextLayoutInspectHelper {
         )
         borderPath.addRect(borderRectF, Path.Direction.CW)
 
+        val textPos = drawParams.textPos
+        val layout = drawParams.drawingLayout
         textBackgroundPath.addRect(
             textPos.first,
             textPos.second,
-            textPos.first + layout.width,
-            textPos.second + layout.height,
+            textPos.first + (layout?.width ?: 0),
+            textPos.second + (layout?.height ?: 0),
             Path.Direction.CW
         )
         paddingPath.addRect(borderRectF, Path.Direction.CW)

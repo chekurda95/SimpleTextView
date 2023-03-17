@@ -27,9 +27,7 @@ import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
 import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
 import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
-import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfigurator
-import com.example.simpletextview.custom_tools.text_layout.core.TextLayoutConfiguratorImpl
-import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutPadding
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutBuildHelper
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutDrawableStateHelper
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutFadingEdgeHelper
@@ -42,7 +40,6 @@ import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextL
 import com.example.simpletextview.custom_tools.utils.LayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import timber.log.Timber
-import java.lang.Integer.MAX_VALUE
 import kotlin.math.roundToInt
 
 /**
@@ -140,11 +137,9 @@ class TextLayout private constructor(
                 val style = styleProvider?.getStyleParams(context, styleKey)
                     ?: CanvasStylesProvider.obtainTextStyle(context, styleKey)
                 TextLayout {
-                    paint = SimpleTextPaint {
-                        textSize = style.textSize ?: textSize
-                        color = style.textColor ?: color
-                        typeface = style.typeface ?: typeface
-                    }
+                    textSize = style.textSize ?: textSize
+                    color = style.textColor ?: color
+                    typeface = style.typeface ?: typeface
                     text = style.text ?: text
                     layoutWidth = style.layoutWidth.takeIf { it != 0 } ?: layoutWidth
                     alignment = style.alignment ?: alignment
@@ -166,23 +161,10 @@ class TextLayout private constructor(
     }
 
     /**
-     * Обработчик изменений состояний [state].
-     */
-    private val reducer = TextLayoutStateReducer()
-
-    /**
-     * Состояние компонента [TextLayout].
-     */
-    private var state: TextLayoutState = reducer.reduceInitialState(params, config)
-
-    private val params: TextLayoutParams by state::params
-    private val drawParams: TextLayoutDrawParams by state::drawParams
-
-    /**
      * Вспомогательная реализация для управления рисуемыми состояниями текстовой разметки.
      * @see colorStateList
      */
-    private val drawableStateHelper = TextLayoutDrawableStateHelper(state.params.paint)
+    private val drawableStateHelper = TextLayoutDrawableStateHelper()
 
     /**
      * Вспомогательная реализация для обработки событий касаний по текстовой разметке.
@@ -192,7 +174,9 @@ class TextLayout private constructor(
     /**
      * Вспомогательная реализация для отрисовки фэйда вместо многоточия при сокращении текста.
      */
-    private val fadingEdgeHelper by lazy { TextLayoutFadingEdgeHelper() }
+    private val fadingEdgeHelper = TextLayoutFadingEdgeHelper()
+
+    private val layoutBuildHelper = TextLayoutBuildHelper(fadingEdgeHelper)
 
     /**
      * Вспомогательная реализация для отладки текстовой разметки.
@@ -202,78 +186,17 @@ class TextLayout private constructor(
     private val inspectHelper = if (isInspectMode) TextLayoutInspectHelper() else null
 
     /**
-     * Текущая текстовая разметка.
-     * Лениво инициализируется при первом обращении к [TextLayout.layout].
+     * Обработчик изменений состояний [state].
      */
-    private var cachedLayout: Layout? = null
+    private val reducer = TextLayoutStateReducer(layoutBuildHelper, drawableStateHelper)
 
     /**
-     * Текущая ширина текста без учета оступов.
-     * Лениво инициализируется при первом обращении к [layout], если разметка изменилась [isLayoutChanged].
+     * Состояние компонента [TextLayout].
      */
-    @Px
-    private var cachedTextWidth: Int = 0
-        get() = layout.let { field }
+    private var state: TextLayoutState = reducer.reduceInitialState(params, config)
 
-    @Px
-    private var cachedWidth = 0
-
-    @Px
-    private var cachedHeight = 0
-
-    private var cachedIsVisible = true
-
-    /**
-     * Признак необходимости в построении layout при следующем обращении
-     * по причине изменившихся данных.
-     */
-    private var isLayoutChanged: Boolean = true
-        set(value) {
-            field = value
-            if (value) {
-                isWidthChanged = true
-                isHeightChanged = true
-                isVisibleChanged = true
-            }
-        }
-    private var isWidthChanged: Boolean = true
-    private var isHeightChanged: Boolean = true
-    private var isVisibleChanged: Boolean = true
-
-    /**
-     * Позиция текста для рисования с учетом внутренних отступов (координата левого верхнего угла).
-     */
-    private var textPos = params.padding.start.toFloat() to params.padding.top.toFloat()
-
-    /**
-     * Прозрачность цвета краски текста.
-     */
-    private var textColorAlpha = params.paint.alpha
-
-    /**
-     * Минимальная высота текста по заданным [TextLayoutParams.minLines].
-     */
-    @get:Px
-    private val minHeightByLines: Int
-        get() {
-            val layoutHeight = when {
-                minLines <= 0 || !isVisible -> 0
-                maxLines <= lineCount -> layout.getLineTop(maxLines)
-                minLines <= lineCount -> layout.height
-                else -> {
-                    val lineHeight = with(params) {
-                        (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
-                    }
-                    layout.height + (minLines - layout.lineCount) * lineHeight
-                }
-            }
-            return layoutHeight + paddingTop + paddingBottom
-        }
-
-    /**
-     * Координаты границ [TextLayout], полученные в [TextLayout.layout].
-     */
-    private var rect = Rect()
+    private val params: TextLayoutParams by state::params
+    private val drawParams: TextLayoutDrawParams by state::drawParams
 
     /**
      * Идентификатор разметки.
@@ -290,15 +213,7 @@ class TextLayout private constructor(
      * Получить текстовую разметку.
      * Имеет ленивую инициализацию.
      */
-    val layout: Layout
-        get() {
-            val cachedLayout = cachedLayout
-            return if (!isLayoutChanged && cachedLayout != null) {
-                cachedLayout
-            } else {
-                updateStaticLayout()
-            }
-        }
+    val layout: Layout by state::layout
 
     /**
      * Краска текста разметки.
@@ -308,16 +223,7 @@ class TextLayout private constructor(
     /**
      * Видимость разметки.
      */
-    val isVisible: Boolean
-        get() = if (isVisibleChanged) {
-            val result = params.isVisible.let {
-                if (!params.isVisibleWhenBlank) it && params.text.isNotBlank()
-                else it
-            }
-            cachedIsVisible = result
-            isVisibleChanged = false
-            result
-        } else cachedIsVisible
+    val isVisible: Boolean by state::isVisible
 
     /**
      * Максимальное количество строк.
@@ -342,25 +248,25 @@ class TextLayout private constructor(
      * Левая позиция разметки, установленная в [TextLayout.layout].
      */
     @get:Px
-    val left: Int by rect::left
+    val left: Int by drawParams.rect::left
 
     /**
      * Верхняя позиция разметки, установленная в [TextLayout.layout].
      */
     @get:Px
-    val top: Int by rect::top
+    val top: Int by drawParams.rect::top
 
     /**
      * Правая позиция разметки с учетом внутренних паддингов [left] + [width].
      */
     @get:Px
-    val right: Int by rect::right
+    val right: Int by drawParams.rect::right
 
     /**
      * Нижняя позиция разметки с учетом внутренний паддингов [top] + [height].
      */
     @get:Px
-    val bottom: Int by rect::bottom
+    val bottom: Int by drawParams.rect::bottom
 
     /**
      * Левый внутренний оступ разметки.
@@ -394,24 +300,7 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val width: Int
-        get() = if (isWidthChanged) {
-            val result = if (isVisible) {
-                params.layoutWidth
-                    ?: maxOf(
-                        params.minWidth,
-                        minOf(
-                            paddingStart + cachedTextWidth + paddingEnd,
-                            params.maxWidth ?: MAX_VALUE
-                        )
-                    )
-            } else 0
-            cachedWidth = result
-            isWidthChanged = false
-            result
-        } else {
-            cachedWidth
-        }
+    val width: Int by state::width
 
     /**
      * Высота всей разметки.
@@ -421,27 +310,13 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     @get:Px
-    val height: Int
-        get() = if (isHeightChanged) {
-            val result = when {
-                !isVisible -> 0
-                width != 0 -> {
-                    maxOf(params.minHeight, minHeightByLines)
-                        .coerceAtMost(params.maxHeight ?: MAX_VALUE)
-                }
-                else -> maxOf(params.minHeight, minHeightByLines)
-            }
-            cachedHeight = result
-            isHeightChanged = false
-            result
-        } else cachedHeight
+    val height: Int by state::height
 
     /**
      * Базовая линия текстовой разметки.
      */
     @get:Px
-    val baseline: Int
-        get() = paddingTop + (cachedLayout?.getLineBaseline(0) ?: 0)
+    val baseline: Int by state::baseline
 
     /**
      * Прозрачность текста разметки.
@@ -544,49 +419,6 @@ class TextLayout private constructor(
     val hyphenationFrequency: Int by params::hyphenationFrequency
 
     /**
-     * Получить ожидаемую ширину разметки для однострочного текста [text] без создания [StaticLayout].
-     * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
-     */
-    @Px
-    fun getDesiredWidth(text: CharSequence? = null): Int {
-        val resultText = text ?: params.text
-        return paddingStart + params.paint.getTextWidth(resultText) + paddingEnd
-    }
-
-    /**
-     * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
-     */
-    @Px
-    fun getDesiredHeight(): Int = textPaint.fontMetrics.let {
-        (it.bottom - it.top + it.leading).roundToInt() + paddingTop + paddingBottom
-    }
-
-    /**
-     * Измерить ширину разметки с учетом ограничений:
-     * - [TextLayoutParams.maxWidth]
-     * - [TextLayoutParams.minWidth]
-     * - [TextLayoutParams.maxLength]
-     */
-    @Px
-    fun measureWidth(): Int =
-        paddingStart + params.limitedWidth + paddingEnd
-
-    /**
-     * Копировать текстовую разметку c текущими [params].
-     * @param config настройка параметров текстовой разметки.
-     * @return новый текстовая разметка с копированными параметрами текущей разметки.
-     */
-    fun copy(config: TextLayoutConfig? = null): TextLayout {
-        val newPaint = SimpleTextPaint {
-            typeface = textPaint.typeface
-            textSize = textPaint.textSize
-            color = textPaint.color
-            letterSpacing = textPaint.letterSpacing
-        }
-        return TextLayout(state.params.copy(paint = newPaint), config)
-    }
-
-    /**
      * Настроить разметку.
      * Если параметры изменятся - разметка будет построена при следующем обращении.
      *
@@ -600,33 +432,8 @@ class TextLayout private constructor(
     fun configure(
         config: TextLayoutConfig
     ): Boolean {
-        val isChanged = if (isLayoutChanged) {
-            TextLayoutConfiguratorImpl(params).apply(config).configure()
-            config.invoke(params)
-            true
-        } else {
-            val oldTextSize = params.paint.textSize
-            val oldLetterSpacing = params.paint.letterSpacing
-            val oldTypeface = params.paint.typeface
-            val oldColor = params.paint.color
-            val oldParams = params.copy()
-
-            config.invoke(params)
-            //checkWarnings()
-            if (oldColor != params.paint.color) {
-                textColorAlpha = params.paint.alpha
-                params.paint.alpha = (textColorAlpha * alpha).toInt()
-            }
-
-            val isTextSizeChanged =
-                oldTextSize != params.paint.textSize ||
-                        oldLetterSpacing != params.paint.letterSpacing ||
-                        oldTypeface != params.paint.typeface
-            (oldParams != params || isTextSizeChanged).also { isChanged ->
-                if (isChanged) isLayoutChanged = true
-            }
-        }
-        drawableStateHelper.textPaint = params.paint
+        val (newState, isChanged) = reducer(state, config)
+        state = newState
         return isChanged
     }
 
@@ -643,39 +450,9 @@ class TextLayout private constructor(
     fun buildLayout(
         config: TextLayoutConfig? = null
     ): Boolean {
-        val isChanged = if (config != null) {
-            configure(config)
-        } else false
+        val isChanged = config?.let(::configure) ?: false
         if (isVisible) layout
         return isChanged
-    }
-
-    fun buildLayout(width: Int) {
-        if (isLayoutChanged) {
-            params.layoutWidth = width
-        } else {
-            val current = params.layoutWidth
-            params.layoutWidth = width
-            isLayoutChanged = current != width
-        }
-        if (isVisible) layout
-    }
-
-    /**
-     * Обновить внутренние отступы.
-     *
-     * @return true, если отступы изменились.
-     */
-    fun updatePadding(
-        start: Int = paddingStart,
-        top: Int = paddingTop,
-        end: Int = paddingEnd,
-        bottom: Int = paddingBottom
-    ): Boolean = with(params) {
-        val oldPadding = padding
-        padding = TextLayoutPadding(start, top, end, bottom)
-        isLayoutChanged = oldPadding != padding || isLayoutChanged
-        oldPadding != padding
     }
 
     /**
@@ -687,11 +464,11 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     fun layout(@Px left: Int, @Px top: Int) {
-        rect.set(left, top, left + width, top + height)
-        textPos = left + paddingStart.toFloat() to top + paddingTop.toFloat()
+        drawParams.rect.set(left, top, left + width, top + height)
+        drawParams.textPos = left + paddingStart.toFloat() to top + paddingTop.toFloat()
 
-        touchHelper.updateTouchRect(rect)
-        inspectHelper?.updateInfo(layout, rect, textPos)
+        touchHelper.updateTouchRect(drawParams.rect)
+        inspectHelper?.updateInfo(drawParams)
     }
 
     /**
@@ -701,12 +478,11 @@ class TextLayout private constructor(
      * чтобы не допускать построения layout на [View.onDraw].
      */
     fun draw(canvas: Canvas) {
-        cachedLayout?.let { layout ->
+        drawParams.drawingLayout?.let { layout ->
             if (!isVisible || params.text.isEmpty()) return
 
-            // TODO("TAGTAG")
-            if (fadingEdgeHelper.isFadeEdgeVisible) {
-                fadingEdgeHelper.drawFade(canvas, rect) { drawLayout(it, layout) }
+            if (fadingEdgeHelper.drawFadingEdge) {
+                fadingEdgeHelper.drawFade(canvas,  drawParams.rect) { drawLayout(it, layout) }
             } else {
                 drawLayout(canvas, layout)
             }
@@ -714,14 +490,57 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withClip(rect) {
+        canvas.withClip(drawParams.rect) {
             canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
                 inspectHelper?.draw(this, isVisible)
-                withTranslation(translationX + textPos.first, translationY + textPos.second) {
+                withTranslation(
+                    x = translationX + drawParams.textPos.first,
+                    y = translationY + drawParams.textPos.second
+                ) {
                     layout.draw(this)
                 }
             }
         }
+    }
+
+    /**
+     * Получить ожидаемую ширину разметки для однострочного текста [text] без создания [StaticLayout].
+     * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
+     */
+    @Px
+    fun getDesiredWidth(text: CharSequence? = null): Int =
+        state.getDesiredWidth(text)
+
+    /**
+     * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
+     */
+    @Px
+    fun getDesiredHeight(): Int =
+        state.getDesiredHeight()
+
+    /**
+     * Измерить ширину разметки с учетом ограничений:
+     * - [TextLayoutParams.maxWidth]
+     * - [TextLayoutParams.minWidth]
+     * - [TextLayoutParams.maxLength]
+     */
+    @Px
+    fun measureWidth(): Int =
+        state.measureWidth()
+
+    /**
+     * Копировать текстовую разметку c текущими [params].
+     * @param config настройка параметров текстовой разметки.
+     * @return новый текстовая разметка с копированными параметрами текущей разметки.
+     */
+    fun copy(config: TextLayoutConfig? = null): TextLayout {
+        val newPaint = SimpleTextPaint {
+            typeface = textPaint.typeface
+            textSize = textPaint.textSize
+            color = textPaint.color
+            letterSpacing = textPaint.letterSpacing
+        }
+        return TextLayout(state.params.copy(paint = newPaint), config)
     }
 
     /**
@@ -789,7 +608,7 @@ class TextLayout private constructor(
      * Для сброса статичной области кликабельности необходимо передать [rect] == null.
      */
     fun setStaticTouchRect(rect: Rect?) {
-        touchHelper.setStaticTouchRect(rect ?: this.rect, rect != null)
+        touchHelper.setStaticTouchRect(rect ?: drawParams.rect, rect != null)
     }
 
     /**
@@ -816,85 +635,6 @@ class TextLayout private constructor(
      */
     fun onTouchCanceled() {
         touchHelper.onTouchCanceled()
-    }
-
-    private var boring: BoringLayout.Metrics? = null
-    private var savedLayout: BoringLayout? = null
-
-    /**
-     * Обновить разметку по набору параметров [params].
-     * Если ширина в [params] не задана, то будет использована ширина текста.
-     * Созданная разметка помещается в кэш [cachedLayout].
-     */
-    private fun updateStaticLayout(): Layout {
-        if (text !is Spannable) {
-            boring = BoringLayout.isBoring(text, textPaint, boring)
-        }
-        val configurator = LayoutConfigurator(
-            params.configuredText,
-            params.paint,
-            boring,
-            savedLayout,
-            width = params.textWidth,
-            alignment = params.alignment,
-            ellipsize = params.ellipsize,
-            includeFontPad = params.includeFontPad,
-            spacingAdd = params.spacingAdd,
-            spacingMulti = params.spacingMulti,
-            maxLines = params.maxLines,
-            maxHeight = params.textMaxHeight,
-            highlights = params.highlights,
-            canContainUrl = params.canContainUrl,
-            breakStrategy = params.breakStrategy,
-            hyphenationFrequency = params.hyphenationFrequency,
-            fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-        )
-        val layout = configurator.configure()
-        layout.also {
-            isLayoutChanged = false
-            cachedLayout = it
-            if (it is BoringLayout) savedLayout = it
-            updateCachedTextWidth()
-            fadingEdgeHelper.updateFadeEdgeVisibility(params)
-        }
-        return layout
-    }
-
-    /**
-     * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
-     */
-    private fun updateCachedTextWidth() {
-        cachedTextWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
-            layout.getLineWidth(0).roundToInt()
-        } else {
-            layout.width
-        }
-    }
-
-    private fun checkWarnings() {
-        val layoutWidth = params.layoutWidth
-        if (!BuildConfig.DEBUG || layoutWidth == null) return
-
-        val minWidth = params.minWidth
-        val maxWidth = params.maxWidth
-        if (minWidth > 0 && layoutWidth < minWidth) {
-            Timber.e(
-                IllegalArgumentException(
-                    "Потенциальная ошибка отображения TextLayout: " +
-                            "значение параметра layoutWidth(${params.layoutWidth}) меньше minWidth(${params.minWidth}). " +
-                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
-                )
-            )
-        }
-        if (maxWidth != null && layoutWidth > maxWidth) {
-            Timber.e(
-                IllegalArgumentException(
-                    "Потенциальная ошибка отображения TextLayout: " +
-                            "значение параметра layoutWidth(${params.layoutWidth}) больше maxWidth(${params.maxWidth}). " +
-                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
-                )
-            )
-        }
     }
 }
 

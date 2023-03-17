@@ -20,7 +20,7 @@ class LayoutConfigurator constructor(
     private var text: CharSequence,
     private var paint: TextPaint,
     private var boring: BoringLayout.Metrics? = null,
-    private var savedLayout: BoringLayout? = null,
+    private var boringLayout: BoringLayout? = null,
     @Px var width: Int = DEFAULT_WRAPPED_WIDTH,
     var alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
     var ellipsize: TextUtils.TruncateAt? = TextUtils.TruncateAt.END,
@@ -168,7 +168,7 @@ class LayoutConfigurator constructor(
         )
 
     private fun buildBoring(width: Int): Layout =
-        savedLayout?.replaceOrMake(
+        boringLayout?.replaceOrMake(
             text,
             paint,
             width,

@@ -51,4 +51,6 @@ interface TextLayoutConfigurator {
     var spacingMulti: Float
     var breakStrategy: Int
     var hyphenationFrequency: Int
+
+    var needHighWidthAccuracy: Boolean
 }

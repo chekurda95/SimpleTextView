@@ -217,6 +217,14 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
             field = value
         }
 
+    override var needHighWidthAccuracy: Boolean = params.needHighWidthAccuracy
+        set(value) {
+            if (!isTextParamsChanged) {
+                isTextParamsChanged = field != value
+            }
+            field = value
+        }
+
     // end region isTextParamsChanged
 
     // region isPaddingParamsChanged
