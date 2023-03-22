@@ -123,9 +123,8 @@ class TextLayoutAutoTestsHelper(
     }
 
     @SuppressLint("DefaultLocale")
-    override fun onInitializeAccessibilityNodeInfo(host: View?, info: AccessibilityNodeInfo?) {
+    override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(host, info)
-        if (host == null || info == null) return
 
         val jsonArray = JSONArray()
         val accessibilityDescription = StringBuilder()
