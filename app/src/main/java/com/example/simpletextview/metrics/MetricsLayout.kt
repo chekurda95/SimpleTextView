@@ -19,6 +19,8 @@ class MetricsLayout @JvmOverloads constructor(
     private var layoutCount = 0L
     private var wasLogged = false
 
+    var inflateTime: Long = 0
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         if (wasLogged) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -42,7 +44,7 @@ class MetricsLayout @JvmOverloads constructor(
             layoutCount++
             Looper.getMainLooper().queue.addIdleHandler {
                 if (!wasLogged) {
-                    val text = "full = ${onMeasureTimeMcs + onLayoutTimeMcs}, measure($measureCount) = $onMeasureTimeMcs, layout($layoutCount) = $onLayoutTimeMcs"
+                    val text = "full = ${inflateTime + onMeasureTimeMcs + onLayoutTimeMcs}, inflate = $inflateTime, measure($measureCount) = $onMeasureTimeMcs, layout($layoutCount) = $onLayoutTimeMcs"
                     Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
                     wasLogged = true
                 }

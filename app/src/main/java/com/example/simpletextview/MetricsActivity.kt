@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.appcompat.app.AppCompatActivity
+import com.example.simpletextview.metrics.MetricsLayout
 
 class MetricsActivity : AppCompatActivity() {
 
@@ -35,7 +36,10 @@ class MetricsActivity : AppCompatActivity() {
             Type.TEXT_VIEW -> R.layout.metrics_app_compat_layout
         }
 
+        val startInflateTime = System.nanoTime()
         val view = LayoutInflater.from(this).inflate(layoutId, container, false)
+        val endInflateTime = System.nanoTime()
+        (view as MetricsLayout).inflateTime = (endInflateTime - startInflateTime) / 1000
         container.addView(view, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
