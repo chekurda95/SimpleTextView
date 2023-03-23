@@ -4,9 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
-import android.text.Layout
+import androidx.core.graphics.toRectF
 import com.example.simpletextview.custom_tools.text_layout.TextLayout
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
 
@@ -45,7 +44,7 @@ internal class TextLayoutInspectHelper {
         textBackgroundPath.reset()
         paddingPath.reset()
 
-        val rect = drawParams.rect
+        val rect = drawParams.layoutRect
         borderRectF.set(
             rect.left.toFloat() + ONE_PX,
             rect.top.toFloat() + ONE_PX,
@@ -53,16 +52,7 @@ internal class TextLayoutInspectHelper {
             rect.bottom.toFloat() - ONE_PX
         )
         borderPath.addRect(borderRectF, Path.Direction.CW)
-
-        val textPos = drawParams.textPos
-        val layout = drawParams.drawingLayout
-        textBackgroundPath.addRect(
-            textPos.first,
-            textPos.second,
-            textPos.first + (layout?.width ?: 0),
-            textPos.second + (layout?.height ?: 0),
-            Path.Direction.CW
-        )
+        textBackgroundPath.addRect(drawParams.textRect, Path.Direction.CW)
         paddingPath.addRect(borderRectF, Path.Direction.CW)
         paddingPath.op(textBackgroundPath, Path.Op.DIFFERENCE)
     }

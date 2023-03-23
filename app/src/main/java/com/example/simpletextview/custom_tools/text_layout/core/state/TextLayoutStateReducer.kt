@@ -17,7 +17,6 @@ internal class TextLayoutStateReducer(
         val initialDrawParams = TextLayoutDrawParams()
         val newState = if (config != null) {
             val (params, _) = TextLayoutConfiguratorImpl(initialParams).apply(config).configure()
-            initialDrawParams.textPos = params.padding.start.toFloat() to params.padding.top.toFloat()
             initialDrawParams.textColorAlpha = params.paint.alpha
             TextLayoutState(layoutBuildHelper, params, initialDrawParams)
         } else {

@@ -1,6 +1,7 @@
 package com.example.simpletextview.custom_tools.text_layout.core.state.data
 
 import android.graphics.Rect
+import android.graphics.RectF
 import android.text.Layout
 import androidx.annotation.FloatRange
 import com.example.simpletextview.custom_tools.text_layout.TextLayout
@@ -13,7 +14,9 @@ internal class TextLayoutDrawParams {
     /**
      * Координаты границ [TextLayout], полученные в [TextLayout.layout].
      */
-    var rect = Rect()
+    val layoutRect = Rect()
+
+    val textRect = RectF()
 
     /**
      * Прозрачность текста разметки.
@@ -25,11 +28,6 @@ internal class TextLayoutDrawParams {
      * Прозрачность цвета краски текста.
      */
     var textColorAlpha = PAINT_MAX_ALPHA
-
-    /**
-     * Позиция текста для рисования с учетом внутренних отступов (координата левого верхнего угла).
-     */
-    var textPos: Pair<Float, Float> = 0f to 0f
 
     /**
      * Поворот текста вокруг центра на угол в градусах.

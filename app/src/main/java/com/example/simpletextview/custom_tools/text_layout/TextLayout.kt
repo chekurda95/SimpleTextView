@@ -1,4 +1,5 @@
 package com.example.simpletextview.custom_tools.text_layout
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
@@ -252,28 +253,28 @@ class TextLayout private constructor(
      */
     @get:Px
     val left: Int
-        get() = drawParams.rect.left
+        get() = drawParams.layoutRect.left
 
     /**
      * Верхняя позиция разметки, установленная в [TextLayout.layout].
      */
     @get:Px
     val top: Int
-        get() = drawParams.rect.top
+        get() = drawParams.layoutRect.top
 
     /**
      * Правая позиция разметки с учетом внутренних паддингов [left] + [width].
      */
     @get:Px
     val right: Int
-        get() = drawParams.rect.right
+        get() = drawParams.layoutRect.right
 
     /**
      * Нижняя позиция разметки с учетом внутренний паддингов [top] + [height].
      */
     @get:Px
     val bottom: Int
-        get() = drawParams.rect.bottom
+        get() = drawParams.layoutRect.bottom
 
     /**
      * Левый внутренний оступ разметки.
@@ -519,10 +520,15 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     fun layout(@Px left: Int, @Px top: Int) {
-        drawParams.rect.set(left, top, left + width, top + height)
-        drawParams.textPos = left + paddingStart.toFloat() to top + paddingTop.toFloat()
+        drawParams.layoutRect.set(left, top, left + width, top + height)
+        drawParams.textRect.set(
+            this.left + paddingStart.toFloat(),
+            this.top + paddingTop.toFloat(),
+            this.right - paddingEnd.toFloat(),
+            this.bottom - paddingBottom.toFloat()
+        )
 
-        touchHelper.updateTouchRect(drawParams.rect)
+        touchHelper.updateTouchRect(drawParams.layoutRect)
         inspectHelper?.updateInfo(drawParams)
     }
 
@@ -537,7 +543,7 @@ class TextLayout private constructor(
             if (!isVisible || params.text.isEmpty()) return
 
             if (fadingEdgeHelper.drawFadingEdge) {
-                fadingEdgeHelper.drawFade(canvas,  drawParams.rect) { drawLayout(it, layout) }
+                fadingEdgeHelper.drawFade(canvas,  drawParams.layoutRect) { drawLayout(it, layout) }
             } else {
                 drawLayout(canvas, layout)
             }
@@ -545,12 +551,18 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withClip(drawParams.rect) {
-            canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
-                inspectHelper?.draw(this, isVisible)
+        canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
+            inspectHelper?.draw(this, isVisible)
+            val textRect = drawParams.textRect
+            withClip(
+                left = textRect.left + translationX,
+                top = textRect.top + translationY,
+                right = textRect.right + translationX,
+                bottom = textRect.bottom + translationY
+            ) {
                 withTranslation(
-                    x = translationX + drawParams.textPos.first,
-                    y = translationY + drawParams.textPos.second
+                    x = translationX + textRect.left,
+                    y = translationY + textRect.top
                 ) {
                     layout.draw(this)
                 }
@@ -665,7 +677,7 @@ class TextLayout private constructor(
      * Для сброса статичной области кликабельности необходимо передать [rect] == null.
      */
     fun setStaticTouchRect(rect: Rect?) {
-        touchHelper.setStaticTouchRect(rect ?: drawParams.rect, rect != null)
+        touchHelper.setStaticTouchRect(rect ?: drawParams.layoutRect, rect != null)
     }
 
     /**
