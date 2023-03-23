@@ -7,9 +7,7 @@ import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextL
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutPrecomputedData
 import com.example.simpletextview.custom_tools.utils.LayoutBuilder
 
-internal class TextLayoutBuildHelper(
-    private val fadingEdgeHelper: TextLayoutFadingEdgeHelper
-) {
+internal class TextLayoutBuildHelper {
 
     /**
      * Последний индекс символа в первой строке.
@@ -22,11 +20,9 @@ internal class TextLayoutBuildHelper(
                 boring = value.boring
             }
         }
+
     private var boring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
-
-    private val useFadingEdge: Boolean
-        get() = fadingEdgeHelper.requiresFadingEdge && fadingEdgeHelper.fadeEdgeSize > 0
 
     fun getBoringMetrics(text: CharSequence, paint: TextPaint): BoringLayout.Metrics? =
         BoringLayout.isBoring(text, paint, boring)
@@ -40,6 +36,7 @@ internal class TextLayoutBuildHelper(
         text: CharSequence,
         width: Int,
         maxHeight: Int?,
+        fadingEdge: Boolean,
         params: TextLayoutParams
     ): Layout {
         val layout = LayoutBuilder(
@@ -58,12 +55,11 @@ internal class TextLayoutBuildHelper(
             highlights = params.highlights,
             breakStrategy = params.breakStrategy,
             hyphenationFrequency = params.hyphenationFrequency,
-            fadingEdge = useFadingEdge,
+            fadingEdge = fadingEdge,
             calculatedLineLastIndex = precomputedData?.calculatedLineLastIndex,
             containsAbsoluteSizeSpans = precomputedData?.containsAbsoluteSizeSpans
         ).build()
         precomputedData = null
-        fadingEdgeHelper.updateFadeEdgeVisibility(width, params)
         return layout
     }
 }

@@ -29,6 +29,7 @@ import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayo
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutDrawableStateHelper
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutFadingEdgeHelper
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutInspectHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutStateBuilder
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutTouchHelper
 import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayoutState
 import com.example.simpletextview.custom_tools.text_layout.core.state.TextLayoutStateReducer
@@ -170,7 +171,7 @@ class TextLayout private constructor(
      */
     private val fadingEdgeHelper = TextLayoutFadingEdgeHelper()
 
-    private val layoutBuildHelper = TextLayoutBuildHelper(fadingEdgeHelper)
+    private val layoutBuildHelper = TextLayoutBuildHelper()
 
     /**
      * Вспомогательная реализация для отладки текстовой разметки.
@@ -180,9 +181,14 @@ class TextLayout private constructor(
     private val inspectHelper = if (isInspectMode) TextLayoutInspectHelper() else null
 
     /**
+     * Билдер состояний [TextLayoutState].
+     */
+    private val stateBuilder = TextLayoutStateBuilder(layoutBuildHelper, fadingEdgeHelper, drawableStateHelper)
+
+    /**
      * Обработчик изменений состояний [state].
      */
-    private val reducer = TextLayoutStateReducer(layoutBuildHelper, drawableStateHelper)
+    private val reducer = TextLayoutStateReducer(stateBuilder)
 
     /**
      * Состояние компонента [TextLayout].

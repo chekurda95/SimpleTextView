@@ -25,6 +25,12 @@ internal class TextLayoutFadingEdgeHelper {
     private var fadeShader: Lazy<Shader>? = null
 
     /**
+     * Признак необходимости использовать fading edge для построения Layout.
+     */
+    val useFadingEdgeForLayout: Boolean
+        get() = requiresFadingEdge && fadeEdgeSize > 0
+
+    /**
      * Признак необходимости затенения каря текста, когда он не помещается в рзметку
      */
     var drawFadingEdge: Boolean = false

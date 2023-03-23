@@ -8,6 +8,7 @@ import android.text.style.AbsoluteSizeSpan
 import androidx.annotation.FloatRange
 import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutBuildHelper
+import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutFadingEdgeHelper
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutDrawParams
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutPrecomputedData
@@ -16,6 +17,7 @@ import kotlin.math.roundToInt
 
 internal class TextLayoutState(
     private val layoutBuildHelper: TextLayoutBuildHelper,
+    private val fadingEdgeHelper: TextLayoutFadingEdgeHelper,
     val params: TextLayoutParams,
     val drawParams: TextLayoutDrawParams
 ) {
@@ -121,8 +123,12 @@ internal class TextLayoutState(
                 text = text,
                 width = textWidth,
                 maxHeight = layoutMaxHeight,
+                fadingEdge = fadingEdgeHelper.useFadingEdgeForLayout,
                 params = params
-            ).also { drawParams.drawingLayout = it }
+            ).also {
+                drawParams.drawingLayout = it
+                fadingEdgeHelper.updateFadeEdgeVisibility(textWidth, params)
+            }
         }
     }
 
