@@ -46,7 +46,7 @@ internal class TextLayoutBuildHelper(
             text = text,
             boring = boring,
             boringLayout = boringLayout,
-            width = width,
+            width = precomputedData?.precomputedTextWidth ?: width,
             maxHeight = maxHeight,
             paint = params.paint,
             alignment = params.alignment,
@@ -60,6 +60,7 @@ internal class TextLayoutBuildHelper(
             hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = useFadingEdge,
             calculatedLineLastIndex = precomputedData?.calculatedLineLastIndex,
+            containsAbsoluteSizeSpans = precomputedData?.containsAbsoluteSizeSpans
         ).build()
         precomputedData = null
         fadingEdgeHelper.updateFadeEdgeVisibility(width, params)

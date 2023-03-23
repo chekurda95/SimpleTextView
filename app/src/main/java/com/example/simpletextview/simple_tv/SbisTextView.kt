@@ -438,9 +438,12 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getSuggestedMinimumWidth(): Int =
         getInternalSuggestedMinimumWidth()
 
-    private fun getInternalSuggestedMinimumWidth(availableWidth: Int? = null): Int =
-        (paddingStart + paddingEnd + textLayout.getPrecomputedWidth(availableWidth))
+    private fun getInternalSuggestedMinimumWidth(availableWidth: Int? = null): Int {
+        val horizontalPadding = paddingStart + paddingEnd
+        val availableTextWidth = availableWidth?.let { it - horizontalPadding }
+        return (horizontalPadding + textLayout.getPrecomputedWidth(availableTextWidth))
             .coerceAtLeast(super.getSuggestedMinimumWidth())
+    }
 
     override fun getSuggestedMinimumHeight(): Int =
         (paddingTop + paddingBottom + textLayout.height)

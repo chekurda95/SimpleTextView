@@ -1,19 +1,18 @@
 package com.example.simpletextview.custom_tools.utils
 
-import android.annotation.SuppressLint
 import android.os.Build
 import android.text.BoringLayout
-import android.text.DynamicLayout
 import android.text.Layout
 import android.text.Spannable
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.text.style.AbsoluteSizeSpan
 import androidx.annotation.IntRange
 import androidx.annotation.Px
 import kotlin.math.ceil
 
-class LayoutBuilder constructor(
+class LayoutBuilder(
     var text: CharSequence,
     var paint: TextPaint,
     var boring: BoringLayout.Metrics? = null,
@@ -30,12 +29,18 @@ class LayoutBuilder constructor(
     var breakStrategy: Int = 0,
     var hyphenationFrequency: Int = 0,
     var fadingEdge: Boolean = false,
-    var calculatedLineLastIndex: Int? = null
+    var calculatedLineLastIndex: Int? = null,
+    var containsAbsoluteSizeSpans: Boolean? = null
 ) {
 
     private var maxLinesByParams: Int = 0
     private var layoutWidthByParams: Int = 0
     private var textLength: Int = 0
+    private var containsAbsoluteSizeSpansByParams = false
+
+    private val isBoring: Boolean
+        get() = boring != null &&
+            ((ellipsize != null && maxLinesByParams == SINGLE_LINE) || boring!!.width <= layoutWidthByParams)
 
     /**
      * Применить настройки [config] для создания [StaticLayout].
@@ -43,7 +48,8 @@ class LayoutBuilder constructor(
     fun build(): Layout {
         layoutWidthByParams = getLayoutWidthByParams()
         maxLinesByParams = getMaxLinesByParams()
-        textLength = getLengthByParams()
+        containsAbsoluteSizeSpansByParams = getContainsAbsoluteSizeSpansByParams()
+        textLength = getTextLengthByParams()
         return buildLayout()
     }
 
@@ -73,8 +79,22 @@ class LayoutBuilder constructor(
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
 
-    private fun getLengthByParams(): Int =
-        if (text !is Spannable && calculatedLineLastIndex != null && maxLines != Int.MAX_VALUE) {
+    private fun getContainsAbsoluteSizeSpansByParams(): Boolean {
+        val text = text
+        val containsAbsoluteSizeSpans = containsAbsoluteSizeSpans
+        return when {
+            containsAbsoluteSizeSpans != null -> {
+                containsAbsoluteSizeSpans
+            }
+            calculatedLineLastIndex != null -> {
+                (text is Spannable && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty())
+            }
+            else -> false
+        }
+    }
+
+    private fun getTextLengthByParams(): Int =
+        if (calculatedLineLastIndex != null && !containsAbsoluteSizeSpansByParams && maxLines != Int.MAX_VALUE) {
             ceil(calculatedLineLastIndex!! * 1.2f * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
@@ -86,34 +106,12 @@ class LayoutBuilder constructor(
      * @param isBreakHighQuality true, если необходим качественный перенос строки
      * с оптимизацией переносов строк по всему абзацу.
      */
-    @SuppressLint("WrongConstant", "Range")
     private fun buildLayout(): Layout =
-        when {
-            useDynamic() -> buildDynamic()
-            useBoring() -> buildBoring()
-            else -> buildStatic()
+        if (isBoring) {
+            buildBoring()
+        } else {
+            buildStatic()
         }
-
-    private fun useDynamic() =
-        text is Spannable
-
-    private fun useBoring() =
-        boring != null &&
-            ((ellipsize != null && maxLinesByParams == SINGLE_LINE) || boring!!.width <= layoutWidthByParams)
-
-    private fun buildDynamic(): DynamicLayout =
-        DynamicLayout(
-            text,
-            text,
-            paint,
-            layoutWidthByParams,
-            alignment,
-            spacingMulti,
-            spacingAdd,
-            includeFontPad,
-            ellipsize,
-            layoutWidthByParams
-        )
 
     private fun buildBoring(): BoringLayout {
         val ellipsize = ellipsize.takeIf { boring!!.width > layoutWidthByParams }

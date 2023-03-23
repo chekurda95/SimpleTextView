@@ -231,7 +231,7 @@ internal class TextLayoutState(
         val isWrappedWidth = availableWidth == null && params.maxWidth == null
 
         val containsAbsoluteSizeSpans = text is Spannable
-            && text.getSpanStart(AbsoluteSizeSpan::class.java).takeIf { it >= 0 } != null
+            && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
 
         var isBoring: BoringLayout.Metrics? = null
         var calculatedLineLastIndex: Int? = null
@@ -264,7 +264,8 @@ internal class TextLayoutState(
         return TextLayoutPrecomputedData(
             precomputedTextWidth = precomputedTextWidth,
             boring = isBoring,
-            calculatedLineLastIndex = calculatedLineLastIndex
+            calculatedLineLastIndex = calculatedLineLastIndex,
+            containsAbsoluteSizeSpans = containsAbsoluteSizeSpans
         )
     }
 }
