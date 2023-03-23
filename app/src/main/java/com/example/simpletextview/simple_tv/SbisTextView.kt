@@ -511,7 +511,7 @@ open class SbisTextView : View, SbisTextViewApi {
                         else -> null
                     }
                 }
-            val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 2)
+            val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 0)
             val hyphenationFrequency = getInt(R.styleable.SbisTextView_android_hyphenationFrequency, 0)
             val isEnabled = getBoolean(R.styleable.SbisTextView_android_enabled, isEnabled)
 
