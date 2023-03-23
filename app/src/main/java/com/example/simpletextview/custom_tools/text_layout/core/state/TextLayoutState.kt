@@ -5,7 +5,6 @@ import android.text.Layout
 import android.text.Spannable
 import android.text.StaticLayout
 import android.text.style.AbsoluteSizeSpan
-import android.util.Log
 import androidx.annotation.FloatRange
 import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.text_layout.core.helpers.TextLayoutBuildHelper
@@ -226,7 +225,6 @@ internal class TextLayoutState(
     }
 
     private fun getPrecomputedData(availableWidth: Int? = null): TextLayoutPrecomputedData {
-        Log.e("TAGTAG", "getPrecomputedData")
         val text = text
         val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
         val limitedTextWidth = availableTextWidth.coerceAtMost(maxTextWidth)
