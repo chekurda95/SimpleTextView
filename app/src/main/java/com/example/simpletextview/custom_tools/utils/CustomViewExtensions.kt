@@ -6,6 +6,7 @@
 package com.example.simpletextview.custom_tools.utils
 
 import android.content.res.Resources
+import android.text.Layout
 import android.text.TextPaint
 import android.view.View
 import androidx.annotation.FloatRange
@@ -104,10 +105,19 @@ fun View.sp(@IntRange(from = 0) value: Int): Int =
  * Получить ширину текста для данного [TextPaint].
  */
 @Px
-fun TextPaint.getTextWidth(text: CharSequence, start: Int = 0, end: Int = text.length): Int =
-    measureText(text, start, end).toInt()
+fun TextPaint.getTextWidth(
+    text: CharSequence,
+    start: Int = 0,
+    end: Int = text.length,
+    byLayout: Boolean = false
+): Int =
+    if (byLayout) {
+        ceil(Layout.getDesiredWidth(text, start, end, this)).toInt()
+    } else {
+        measureText(text, start, end).toInt()
+    }
 
-fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Pair<Int, Int> {
+fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean = false): Pair<Int, Int> {
     if (maxWidth <= 0) return 0 to 0
 
     val length = text.length
@@ -119,7 +129,7 @@ fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Pair<Int, 
         var lastIndex = 0
         for (i in 1..steps) {
             lastIndex = (i * step).coerceAtMost(length)
-            sumWidth += measureText(text, startIndex, lastIndex)
+            sumWidth += getTextWidth(text, startIndex, lastIndex, byLayout)
             if (sumWidth >= maxWidth) {
                 return maxWidth to lastIndex
             } else {
@@ -128,7 +138,8 @@ fun TextPaint.getLimitedTextWidth(text: CharSequence, maxWidth: Int): Pair<Int, 
         }
         sumWidth.toInt() to lastIndex
     } else {
-        maxOf(getTextWidth(text), maxWidth) to length
+        val textWidth = this@getTextWidth.getTextWidth(text, byLayout = byLayout).coerceAtMost(maxWidth)
+        textWidth to length
     }
 }
 

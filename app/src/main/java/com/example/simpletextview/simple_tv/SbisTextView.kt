@@ -426,8 +426,8 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = measureDirection(widthMeasureSpec) { maxWidth ->
-            getInternalSuggestedMinimumWidth(maxWidth)
+        val width = measureDirection(widthMeasureSpec) { availableWidth ->
+            getInternalSuggestedMinimumWidth(availableWidth)
         }
         val horizontalPadding = paddingStart + paddingEnd
         textLayout.buildLayout { layoutWidth = width - horizontalPadding }
@@ -438,8 +438,8 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getSuggestedMinimumWidth(): Int =
         getInternalSuggestedMinimumWidth()
 
-    private fun getInternalSuggestedMinimumWidth(maxWidth: Int? = null): Int =
-        (paddingStart + paddingEnd + textLayout.getDesiredWidth(maxWidth = maxWidth))
+    private fun getInternalSuggestedMinimumWidth(availableWidth: Int? = null): Int =
+        (paddingStart + paddingEnd + textLayout.getPrecomputedWidth(availableWidth))
             .coerceAtLeast(super.getSuggestedMinimumWidth())
 
     override fun getSuggestedMinimumHeight(): Int =

@@ -30,7 +30,7 @@ class LayoutBuilder constructor(
     var breakStrategy: Int = 0,
     var hyphenationFrequency: Int = 0,
     var fadingEdge: Boolean = false,
-    var lineLastIndex: Int? = null
+    var calculatedLineLastIndex: Int? = null
 ) {
 
     private var maxLinesByParams: Int = 0
@@ -54,7 +54,7 @@ class LayoutBuilder constructor(
         val width = width
         return when {
             width != null && width >= 0 -> width
-            text is Spannable -> ceil(Layout.getDesiredWidth(text, paint)).toInt()
+            text is Spannable -> paint.getTextWidth(text, byLayout = true)
             else -> paint.getTextWidth(text)
         }.let { layoutWidth ->
             layoutWidth + if (isNeedFade()) ADDITIONAL_WIDTH else 0
@@ -74,8 +74,8 @@ class LayoutBuilder constructor(
     }
 
     private fun getLengthByParams(): Int =
-        if (text !is Spannable && lineLastIndex != null && maxLines != Int.MAX_VALUE) {
-            ceil(lineLastIndex!! * 1.2f * maxLines).toInt().coerceAtMost(text.length)
+        if (text !is Spannable && calculatedLineLastIndex != null && maxLines != Int.MAX_VALUE) {
+            ceil(calculatedLineLastIndex!! * 1.2f * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
         }
@@ -87,29 +87,21 @@ class LayoutBuilder constructor(
      * с оптимизацией переносов строк по всему абзацу.
      */
     @SuppressLint("WrongConstant", "Range")
-    private fun buildLayout(): Layout {
-        val result = when {
-            useDynamic() -> {
-                buildDynamic()
-            }
-            useBoring() -> {
-                buildBoring()
-            }
-            else -> {
-                buildStaticLayout()
-            }
+    private fun buildLayout(): Layout =
+        when {
+            useDynamic() -> buildDynamic()
+            useBoring() -> buildBoring()
+            else -> buildStatic()
         }
-        return result
-    }
 
     private fun useDynamic() =
         text is Spannable
 
     private fun useBoring() =
-        lineLastIndex == null && boring != null &&
+        boring != null &&
             ((ellipsize != null && maxLinesByParams == SINGLE_LINE) || boring!!.width <= layoutWidthByParams)
 
-    private fun buildDynamic(): Layout =
+    private fun buildDynamic(): DynamicLayout =
         DynamicLayout(
             text,
             text,
@@ -123,32 +115,40 @@ class LayoutBuilder constructor(
             layoutWidthByParams
         )
 
-    private fun buildBoring(): Layout =
-        boringLayout?.replaceOrMake(
-            text,
-            paint,
-            layoutWidthByParams,
-            alignment,
-            spacingMulti,
-            spacingAdd,
-            boring,
-            includeFontPad,
-            ellipsize,
-            layoutWidthByParams
-        ) ?: BoringLayout.make(
-            text,
-            paint,
-            layoutWidthByParams,
-            alignment,
-            spacingMulti,
-            spacingAdd,
-            boring,
-            includeFontPad,
-            ellipsize,
-            layoutWidthByParams
-        )
+    private fun buildBoring(): BoringLayout {
+        val ellipsize = ellipsize.takeIf { boring!!.width > layoutWidthByParams }
+        val boringLayout = boringLayout
+        return if (boringLayout != null) {
+            boringLayout.replaceOrMake(
+                text,
+                paint,
+                layoutWidthByParams,
+                alignment,
+                spacingMulti,
+                spacingAdd,
+                boring,
+                includeFontPad,
+                ellipsize,
+                layoutWidthByParams
+            )
+        } else {
+            BoringLayout.make(
+                text,
+                paint,
+                layoutWidthByParams,
+                alignment,
+                spacingMulti,
+                spacingAdd,
+                boring,
+                includeFontPad,
+                ellipsize,
+                layoutWidthByParams
+            )
+        }
+    }
 
-    private fun buildStaticLayout(): Layout =
+
+    private fun buildStatic(): StaticLayout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             StaticLayout.Builder.obtain(text, 0, textLength, paint, layoutWidthByParams)
                 .setAlignment(alignment)
