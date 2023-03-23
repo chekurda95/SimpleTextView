@@ -119,14 +119,14 @@ fun TextPaint.getTextWidth(
 
 fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean = false): Pair<Int, Int> {
     if (maxWidth <= 0) return 0 to 0
-
     val length = text.length
-    return if (length > 20) {
+    return if (length > 20 && !byLayout) {
         val step = 10
         val steps = ceil(length / step.toFloat()).toInt()
         var sumWidth = 0f
         var startIndex = 0
         var lastIndex = 0
+
         for (i in 1..steps) {
             lastIndex = (i * step).coerceAtMost(length)
             sumWidth += getTextWidth(text, startIndex, lastIndex, byLayout)
@@ -136,6 +136,7 @@ fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean 
                 startIndex = lastIndex
             }
         }
+
         sumWidth.toInt() to lastIndex
     } else {
         val textWidth = this@getTextWidth.getTextWidth(text, byLayout = byLayout).coerceAtMost(maxWidth)
