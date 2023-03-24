@@ -32,21 +32,21 @@ class LayoutBuilder(
     var hasTextSizeSpans: Boolean? = null
 ) {
 
-    private var maxLinesByParams: Int = 0
-    private var layoutWidthByParams: Int = 0
-    private var textLength: Int = 0
-    private var hasTextSizeSpansByParams = false
-
     /**
      * Применить настройки [config] для создания [StaticLayout].
      */
     fun build(): Layout {
-        text = text.highlightText(highlights)
-        layoutWidthByParams = getLayoutWidthByParams()
-        maxLinesByParams = getMaxLinesByParams()
-        hasTextSizeSpansByParams = getContainsTextSizeSpansByParams()
-        textLength = getTextLengthByParams()
-        return buildLayout().apply {
+        val preparedText = text.highlightText(highlights)
+        val preparedWidth = prepareWidth(preparedText, paint, width, fadingEdge)
+        val preparedMaxLines = prepareMaxLines(preparedText, paint, maxLines, maxHeight)
+        val preparedHasTextSizeSpans = prepareHasTextSizeSpans(preparedText, hasTextSizeSpans, lineLastSymbolIndex)
+        val preparedTextLength = prepareTextLength(preparedMaxLines, preparedHasTextSizeSpans, lineLastSymbolIndex)
+        return createLayout(
+            text = preparedText,
+            width = preparedWidth,
+            textLength = preparedTextLength,
+            maxLines = preparedMaxLines
+        ).apply {
             tryHighlightEllipsize()
         }
     }
@@ -54,36 +54,45 @@ class LayoutBuilder(
     /**
      * Настроить ширину текста.
      */
-    private fun getLayoutWidthByParams(): Int {
-        val width = width
-        return when {
+    private fun prepareWidth(
+        text: CharSequence,
+        paint: TextPaint,
+        width: Int?,
+        fadingEdge: Boolean
+    ): Int =
+        when {
             width != null && width >= 0 -> width
             text is Spannable -> paint.getTextWidth(text, byLayout = true)
             else -> paint.getTextWidth(text)
         }.let { layoutWidth ->
-            layoutWidth + if (isNeedFade()) ADDITIONAL_FADING_EDGE_WIDTH else 0
+            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdge)) ADDITIONAL_FADING_EDGE_WIDTH else 0
+            layoutWidth + additional
         }
-    }
 
     /**
      * Настроить максимально допустимое количество строк.
      */
-    private fun getMaxLinesByParams(): Int {
+    private fun prepareMaxLines(
+        text: CharSequence,
+        paint: TextPaint,
+        maxLines: Int,
+        maxHeight: Int?
+    ): Int {
         val calculatedMaxLines = when {
             text.isBlank() -> SINGLE_LINE
-            maxHeight != null -> maxOf(maxHeight!!, 0) / getOneLineHeight()
+            maxHeight != null -> maxOf(maxHeight, 0) / paint.textHeight
             else -> maxLines
         }
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
 
-    private fun getContainsTextSizeSpansByParams(): Boolean {
-        val text = text
-        val containsAbsoluteSizeSpans = hasTextSizeSpans
+    private fun prepareHasTextSizeSpans(
+        text: CharSequence,
+        hasTextSizeSpans: Boolean?,
+        lineLastSymbolIndex: Int?
+    ): Boolean {
         return when {
-            containsAbsoluteSizeSpans != null -> {
-                containsAbsoluteSizeSpans
-            }
+            hasTextSizeSpans != null -> hasTextSizeSpans
             lineLastSymbolIndex != null -> {
                 (text is Spannable && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty())
             }
@@ -91,12 +100,19 @@ class LayoutBuilder(
         }
     }
 
-    private fun getTextLengthByParams(): Int =
+    private fun prepareTextLength(
+        maxLines: Int,
+        hasTextSizeSpansByParams: Boolean,
+        lineLastSymbolIndex: Int?
+    ): Int =
         if (lineLastSymbolIndex != null && !hasTextSizeSpansByParams && maxLines != MAX_LINES_NO_LIMIT) {
-            ceil(lineLastSymbolIndex!! * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
+            ceil(lineLastSymbolIndex * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
         }
+
+    private fun isNeedFade(text: CharSequence, paint: TextPaint, width: Int, fadingEdge: Boolean): Boolean =
+        fadingEdge && text != TextUtils.ellipsize(text, paint, width.toFloat(), TextUtils.TruncateAt.END)
 
     /**
      * Построить [StaticLayout] по текущим параметрам конфигуратора.
@@ -104,53 +120,28 @@ class LayoutBuilder(
      * @param isBreakHighQuality true, если необходим качественный перенос строки
      * с оптимизацией переносов строк по всему абзацу.
      */
-    private fun buildLayout(): Layout =
+    private fun createLayout(
+        text: CharSequence,
+        width: Int,
+        textLength: Int,
+        maxLines: Int
+    ): Layout =
         LayoutCreator.createLayout(
-            text,
-            paint,
-            layoutWidthByParams,
-            alignment,
-            textLength,
-            spacingMulti,
-            spacingAdd,
-            includeFontPad,
-            maxLines,
-            breakStrategy,
-            hyphenationFrequency,
-            ellipsize,
-            boring,
-            boringLayout
+            text = text,
+            paint = paint,
+            width = width,
+            alignment = alignment,
+            length = textLength,
+            spacingMulti = spacingMulti,
+            spacingAdd = spacingAdd,
+            includeFontPad = includeFontPad,
+            maxLines = maxLines,
+            breakStrategy = breakStrategy,
+            hyphenationFrequency = hyphenationFrequency,
+            ellipsize = ellipsize,
+            boring = boring,
+            boringLayout = boringLayout
         )
-
-    private fun isNeedFade(): Boolean =
-        fadingEdge && text != TextUtils.ellipsize(text, paint, layoutWidthByParams.toFloat(), TextUtils.TruncateAt.END)
-
-    /**
-     * Получить высоту одной строки текста по заданному [paint].
-     */
-    private fun getOneLineHeight(): Int =
-        paint.textHeight.let { textHeight ->
-            if (textHeight != 0 || paint.textSize == 0f) {
-                textHeight
-            } else {
-                getOneLineHeightByStaticLayout()
-            }
-        }
-
-    /**
-     * Получить высоту одной строки текста путем создания [StaticLayout].
-     *
-     * Необходимость для тестов, где нет возможности замокать native [TextPaint],
-     * который возвращает textSize == 0,
-     * [StaticLayout] как-то обходит эту ситуацию через другие нативные методы.
-     */
-    private fun getOneLineHeightByStaticLayout(): Int {
-        val paramsMaxLines = maxLines
-        maxLines = 1
-        return buildLayout().height.also {
-            maxLines = paramsMaxLines
-        }
-    }
 
     /**
      * Подсветка сокращения текста при наличии [highlights] за пределами сокращения.
