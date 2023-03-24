@@ -237,10 +237,6 @@ open class SbisTextView : View, SbisTextViewApi {
         accessibilityDelegate = TextLayoutAutoTestsHelper(this, textLayout)
     }
 
-    init {
-        textLayout.configure { highlights = TextHighlights(listOf(HighlightSpan(42, 43)), Color.YELLOW) }
-    }
-
     override fun setText(@StringRes stringRes: Int) {
         text = resources.getString(stringRes)
     }
