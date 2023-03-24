@@ -113,13 +113,16 @@ internal val CharSequence.lastTextIndex: Int
  * Признак сокращения текста посредством символа троеточия [ELLIPSIZE_CHAR].
  */
 internal val CharSequence.hasSymbolEllipsize: Boolean
-    get() = length > 0 && last().toString() == ELLIPSIZE_CHAR
+    get() = isNotEmpty() && last().toString() == ELLIPSIZE_CHAR
 
 /**
  * Признак простого сокращения текста посредством трех символов точек [ELLIPSIZE_STRING].
  */
 internal val CharSequence.hasSimpleEllipsize: Boolean
     get() = length > ELLIPSIZE_STRING.length && lastIndexOf(ELLIPSIZE_STRING) == length - ELLIPSIZE_STRING.length
+
+internal val CharSequence.ellipsizeIndex: Int?
+    get() = indexOf(ELLIPSIZE_CHAR).takeIf { it >= 0 }
 
 /**
  * Применить span выделения [Spannable] текста от позиции [start] (включительно) до позиции [end] (не включительно),

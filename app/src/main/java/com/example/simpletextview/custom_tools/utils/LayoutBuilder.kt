@@ -29,14 +29,14 @@ class LayoutBuilder(
     var breakStrategy: Int = 0,
     var hyphenationFrequency: Int = 0,
     var fadingEdge: Boolean = false,
-    var calculatedLineLastIndex: Int? = null,
-    var containsAbsoluteSizeSpans: Boolean? = null
+    var lineLastSymbolIndex: Int? = null,
+    var containsTextSizeSpans: Boolean? = null
 ) {
 
     private var maxLinesByParams: Int = 0
     private var layoutWidthByParams: Int = 0
     private var textLength: Int = 0
-    private var containsAbsoluteSizeSpansByParams = false
+    private var containsTextSizeSpansByParams = false
 
     private val isBoring: Boolean
         get() = boring != null &&
@@ -46,11 +46,14 @@ class LayoutBuilder(
      * Применить настройки [config] для создания [StaticLayout].
      */
     fun build(): Layout {
+        text = text.highlightText(highlights)
         layoutWidthByParams = getLayoutWidthByParams()
         maxLinesByParams = getMaxLinesByParams()
-        containsAbsoluteSizeSpansByParams = getContainsAbsoluteSizeSpansByParams()
+        containsTextSizeSpansByParams = getContainsTextSizeSpansByParams()
         textLength = getTextLengthByParams()
-        return buildLayout()
+        return buildLayout().apply {
+            tryHighlightEllipsize()
+        }
     }
 
     /**
@@ -63,7 +66,7 @@ class LayoutBuilder(
             text is Spannable -> paint.getTextWidth(text, byLayout = true)
             else -> paint.getTextWidth(text)
         }.let { layoutWidth ->
-            layoutWidth + if (isNeedFade()) ADDITIONAL_WIDTH else 0
+            layoutWidth + if (isNeedFade()) ADDITIONAL_FADING_EDGE_WIDTH else 0
         }
     }
 
@@ -79,14 +82,14 @@ class LayoutBuilder(
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
 
-    private fun getContainsAbsoluteSizeSpansByParams(): Boolean {
+    private fun getContainsTextSizeSpansByParams(): Boolean {
         val text = text
-        val containsAbsoluteSizeSpans = containsAbsoluteSizeSpans
+        val containsAbsoluteSizeSpans = containsTextSizeSpans
         return when {
             containsAbsoluteSizeSpans != null -> {
                 containsAbsoluteSizeSpans
             }
-            calculatedLineLastIndex != null -> {
+            lineLastSymbolIndex != null -> {
                 (text is Spannable && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty())
             }
             else -> false
@@ -94,8 +97,8 @@ class LayoutBuilder(
     }
 
     private fun getTextLengthByParams(): Int =
-        if (calculatedLineLastIndex != null && !containsAbsoluteSizeSpansByParams && maxLines != Int.MAX_VALUE) {
-            ceil(calculatedLineLastIndex!! * 1.2f * maxLines).toInt().coerceAtMost(text.length)
+        if (lineLastSymbolIndex != null && !containsTextSizeSpansByParams && maxLines != MAX_LINES_NO_LIMIT) {
+            ceil(lineLastSymbolIndex!! * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
         }
@@ -206,13 +209,33 @@ class LayoutBuilder(
             maxLines = paramsMaxLines
         }
     }
+
+    /**
+     * Подсветка сокращения текста при наличии [highlights] за пределами сокращения.
+     */
+    private fun Layout.tryHighlightEllipsize() {
+        val highlights = highlights
+        if (highlights == null || highlights.positionList.isNullOrEmpty()) return
+
+        val ellipsizeIndex = text.ellipsizeIndex ?: return
+        val containsHighlightsAfterEllipsize = highlights.positionList.find { highlight ->
+            highlight.start > ellipsizeIndex || highlight.end > ellipsizeIndex
+        } != null
+
+        if (containsHighlightsAfterEllipsize) {
+            val span = HighlightSpan(ellipsizeIndex, ellipsizeIndex + 1)
+            val ellipsizeHighlight = TextHighlights(
+                positionList = listOf(span),
+                highlightColor = highlights.highlightColor
+            )
+            this@LayoutBuilder.text.highlightText(ellipsizeHighlight)
+        }
+    }
 }
 
 private const val MAX_LINES_NO_LIMIT = Integer.MAX_VALUE
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f
-private const val ELLIPSIS_CHAR = "\u2026"
 private const val SINGLE_LINE = 1
-private const val DEFAULT_WRAPPED_WIDTH = -1
-private const val THREE_SYMBOLS_OFFSET_FROM_TELEGRAM = 3
-private const val ADDITIONAL_WIDTH = 300
+private const val ADDITIONAL_FADING_EDGE_WIDTH = 300
+private const val ONE_LINE_SYMBOLS_COUNT_RESERVE = 1.2f

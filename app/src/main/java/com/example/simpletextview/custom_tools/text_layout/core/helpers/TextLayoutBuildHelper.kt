@@ -56,8 +56,8 @@ internal class TextLayoutBuildHelper {
             breakStrategy = params.breakStrategy,
             hyphenationFrequency = params.hyphenationFrequency,
             fadingEdge = fadingEdge,
-            calculatedLineLastIndex = precomputedData?.calculatedLineLastIndex,
-            containsAbsoluteSizeSpans = precomputedData?.containsAbsoluteSizeSpans
+            lineLastSymbolIndex = precomputedData?.calculatedLineLastIndex,
+            containsTextSizeSpans = precomputedData?.containsAbsoluteSizeSpans
         ).build()
         precomputedData = null
         return layout
