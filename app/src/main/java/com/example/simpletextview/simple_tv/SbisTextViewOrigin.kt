@@ -34,6 +34,7 @@ import com.example.simpletextview.R
 import com.example.simpletextview.custom_tools.TextLayoutConfig
 import com.example.simpletextview.custom_tools.TextLayout
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils
+import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import org.apache.commons.lang3.StringUtils
@@ -226,6 +227,10 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
 
     override fun setText(@StringRes stringRes: Int) {
         text = resources.getString(stringRes)
+    }
+
+    override fun setTextWithHighlights(text: CharSequence?, highlights: TextHighlights?) {
+        TODO("Not yet implemented")
     }
 
     override fun setTextSize(unit: Int, size: Float) {
