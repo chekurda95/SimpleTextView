@@ -236,11 +236,11 @@ internal class TextLayoutState(
         val limitedTextWidth = availableTextWidth.coerceAtMost(maxTextWidth)
         val isWrappedWidth = availableWidth == null && params.maxWidth == null
 
-        val containsAbsoluteSizeSpans = text is Spannable
+        val hasTextSizeSpans = text is Spannable
             && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
 
         var isBoring: BoringLayout.Metrics? = null
-        var calculatedLineLastIndex: Int? = null
+        var lineLastSymbolIndex: Int? = null
 
         if (text !is Spannable && text.length <= 40 && params.maxLines == SINGLE_LINE) {
             isBoring = layoutBuildHelper.getBoringMetrics(text, params.paint)
@@ -252,16 +252,16 @@ internal class TextLayoutState(
                     .coerceAtLeast(minTextWidth)
             }
             !isWrappedWidth -> {
-                val (width, lineLastIndex) = params.paint.getTextWidth(
+                val (width, lastIndex) = params.paint.getTextWidth(
                     text = text,
                     maxWidth = limitedTextWidth,
-                    byLayout = containsAbsoluteSizeSpans
+                    byLayout = hasTextSizeSpans
                 )
-                calculatedLineLastIndex = lineLastIndex
+                lineLastSymbolIndex = lastIndex
                 width.coerceAtLeast(minTextWidth)
             }
             else -> {
-                val width = params.paint.getTextWidth(text = text, byLayout = containsAbsoluteSizeSpans)
+                val width = params.paint.getTextWidth(text = text, byLayout = hasTextSizeSpans)
                 width.coerceAtMost(limitedTextWidth)
                     .coerceAtLeast(minTextWidth)
             }
@@ -270,8 +270,8 @@ internal class TextLayoutState(
         return TextLayoutPrecomputedData(
             precomputedTextWidth = precomputedTextWidth,
             boring = isBoring,
-            calculatedLineLastIndex = calculatedLineLastIndex,
-            containsAbsoluteSizeSpans = containsAbsoluteSizeSpans
+            lineLastSymbolIndex = lineLastSymbolIndex,
+            hasTextSizeSpans = hasTextSizeSpans
         )
     }
 }

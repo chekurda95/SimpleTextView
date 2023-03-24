@@ -5,6 +5,6 @@ import android.text.BoringLayout
 internal class TextLayoutPrecomputedData(
     val precomputedTextWidth: Int,
     val boring: BoringLayout.Metrics? = null,
-    val calculatedLineLastIndex: Int? = null,
-    val containsAbsoluteSizeSpans: Boolean? = null
+    val lineLastSymbolIndex: Int? = null,
+    val hasTextSizeSpans: Boolean? = null
 )

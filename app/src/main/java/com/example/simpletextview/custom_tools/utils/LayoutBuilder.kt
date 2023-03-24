@@ -30,13 +30,13 @@ class LayoutBuilder(
     var hyphenationFrequency: Int = 0,
     var fadingEdge: Boolean = false,
     var lineLastSymbolIndex: Int? = null,
-    var containsTextSizeSpans: Boolean? = null
+    var hasTextSizeSpans: Boolean? = null
 ) {
 
     private var maxLinesByParams: Int = 0
     private var layoutWidthByParams: Int = 0
     private var textLength: Int = 0
-    private var containsTextSizeSpansByParams = false
+    private var hasTextSizeSpansByParams = false
 
     private val isBoring: Boolean
         get() = boring != null &&
@@ -49,7 +49,7 @@ class LayoutBuilder(
         text = text.highlightText(highlights)
         layoutWidthByParams = getLayoutWidthByParams()
         maxLinesByParams = getMaxLinesByParams()
-        containsTextSizeSpansByParams = getContainsTextSizeSpansByParams()
+        hasTextSizeSpansByParams = getContainsTextSizeSpansByParams()
         textLength = getTextLengthByParams()
         return buildLayout().apply {
             tryHighlightEllipsize()
@@ -84,7 +84,7 @@ class LayoutBuilder(
 
     private fun getContainsTextSizeSpansByParams(): Boolean {
         val text = text
-        val containsAbsoluteSizeSpans = containsTextSizeSpans
+        val containsAbsoluteSizeSpans = hasTextSizeSpans
         return when {
             containsAbsoluteSizeSpans != null -> {
                 containsAbsoluteSizeSpans
@@ -97,7 +97,7 @@ class LayoutBuilder(
     }
 
     private fun getTextLengthByParams(): Int =
-        if (lineLastSymbolIndex != null && !containsTextSizeSpansByParams && maxLines != MAX_LINES_NO_LIMIT) {
+        if (lineLastSymbolIndex != null && !hasTextSizeSpansByParams && maxLines != MAX_LINES_NO_LIMIT) {
             ceil(lineLastSymbolIndex!! * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
