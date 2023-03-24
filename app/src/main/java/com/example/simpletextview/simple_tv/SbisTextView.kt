@@ -20,6 +20,7 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.annotation.*
 import androidx.annotation.IntRange
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.withStyledAttributes
@@ -35,26 +36,40 @@ import org.apache.commons.lang3.StringUtils
 
 open class SbisTextView : View, SbisTextViewApi {
 
-    constructor(context: Context) : super(context)
-
-    constructor(
-        context: Context,
-        attrs: AttributeSet? = null
-    ) : this(context, attrs, R.attr.sbisTextViewTheme, R.style.SbisTextViewDefaultTheme)
-
-    constructor(
-        context: Context,
-        attrs: AttributeSet? = null,
-        @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
-    ) : this(context, attrs, defStyleAttr, R.style.SbisTextViewDefaultTheme)
-
-    constructor(
+    /**
+     * Базовый конструктор.
+     */
+    @JvmOverloads constructor(
         context: Context,
         attrs: AttributeSet? = null,
         @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
         @StyleRes defStyleRes: Int = R.style.SbisTextViewDefaultTheme
     ) : super(context, attrs, defStyleAttr, defStyleRes) {
         obtainAttrs(attrs, defStyleAttr, defStyleRes)
+    }
+
+    /**
+     * Облегченный и самый быстрый конструктор для программного создания [SbisTextView]
+     * без темизации с dsl настройкой [config].
+     */
+    constructor(
+        context: Context,
+        config: TextLayoutConfig
+    ) : super(context) {
+        textLayout.configure(config)
+    }
+
+    /**
+     * Конструктор для программного создания [SbisTextView] с темизированным контекстом по стилю [styleRes].
+     * Настройка [config] будет применена поверх атрибутов из стиля.
+     */
+    constructor(
+        context: Context,
+        styleRes: Int,
+        config: TextLayoutConfig? = null
+    ) : super(ContextThemeWrapper(context, styleRes), null) {
+        obtainAttrs()
+        config?.also(textLayout::configure)
     }
 
     private val textLayout: TextLayout = TextLayout {
@@ -468,9 +483,9 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     private fun obtainAttrs(
-        attrs: AttributeSet?,
-        @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
-        @StyleRes defStyleRes: Int = R.style.SbisTextViewDefaultTheme
+        attrs: AttributeSet? = null,
+        @AttrRes defStyleAttr: Int = 0,
+        @StyleRes defStyleRes: Int = 0
     ) {
         context.withStyledAttributes(attrs, R.styleable.SbisTextView, defStyleAttr, defStyleRes) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
