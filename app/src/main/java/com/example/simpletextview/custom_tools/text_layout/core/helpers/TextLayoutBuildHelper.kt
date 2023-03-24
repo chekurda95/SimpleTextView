@@ -5,7 +5,7 @@ import android.text.Layout
 import android.text.TextPaint
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParams
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutPrecomputedData
-import com.example.simpletextview.custom_tools.utils.LayoutBuilder
+import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
 
 internal class TextLayoutBuildHelper {
 
@@ -39,26 +39,26 @@ internal class TextLayoutBuildHelper {
         fadingEdge: Boolean,
         params: TextLayoutParams
     ): Layout {
-        val layout = LayoutBuilder(
-            text = text,
-            boring = boring,
-            boringLayout = boringLayout,
-            width = precomputedData?.precomputedTextWidth ?: width,
-            maxHeight = maxHeight,
-            paint = params.paint,
-            alignment = params.alignment,
-            ellipsize = params.ellipsize,
-            includeFontPad = params.includeFontPad,
-            spacingAdd = params.spacingAdd,
-            spacingMulti = params.spacingMulti,
-            maxLines = params.maxLines,
-            highlights = params.highlights,
-            breakStrategy = params.breakStrategy,
-            hyphenationFrequency = params.hyphenationFrequency,
-            fadingEdge = fadingEdge,
-            lineLastSymbolIndex = precomputedData?.lineLastSymbolIndex,
-            hasTextSizeSpans = precomputedData?.hasTextSizeSpans
-        ).build()
+        val layout = LayoutConfigurator.configure {
+            this.text = text
+            this.boring = this@TextLayoutBuildHelper.boring
+            this.boringLayout = this@TextLayoutBuildHelper.boringLayout
+            this.width = precomputedData?.precomputedTextWidth ?: width
+            this.paint = params.paint
+            this.maxHeight = maxHeight
+            this.alignment = params.alignment
+            this.ellipsize = params.ellipsize
+            this.includeFontPad = params.includeFontPad
+            this.spacingAdd = params.spacingAdd
+            this.spacingMulti = params.spacingMulti
+            this.maxLines = params.maxLines
+            this.highlights = params.highlights
+            this.breakStrategy = params.breakStrategy
+            this.hyphenationFrequency = params.hyphenationFrequency
+            this.fadingEdge = fadingEdge
+            this.lineLastSymbolIndex = precomputedData?.lineLastSymbolIndex
+            this.hasTextSizeSpans = precomputedData?.hasTextSizeSpans
+        }
         precomputedData = null
         return layout
     }

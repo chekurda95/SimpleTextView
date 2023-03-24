@@ -1,4 +1,4 @@
-package com.example.simpletextview.custom_tools.utils
+package com.example.simpletextview.custom_tools.utils.layout
 
 import android.text.BoringLayout
 import android.text.Layout
@@ -9,45 +9,75 @@ import android.text.TextUtils
 import android.text.style.AbsoluteSizeSpan
 import androidx.annotation.IntRange
 import androidx.annotation.Px
+import com.example.simpletextview.custom_tools.utils.HighlightSpan
+import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
+import com.example.simpletextview.custom_tools.utils.TextHighlights
+import com.example.simpletextview.custom_tools.utils.ellipsizeIndex
+import com.example.simpletextview.custom_tools.utils.getTextWidth
+import com.example.simpletextview.custom_tools.utils.highlightText
+import com.example.simpletextview.custom_tools.utils.textHeight
 import kotlin.math.ceil
 
-class LayoutBuilder(
-    var text: CharSequence,
-    var paint: TextPaint,
-    var boring: BoringLayout.Metrics? = null,
-    var boringLayout: BoringLayout? = null,
-    @Px var width: Int? = null,
-    var alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
-    var ellipsize: TextUtils.TruncateAt? = TextUtils.TruncateAt.END,
-    var includeFontPad: Boolean = true,
-    var spacingAdd: Float = DEFAULT_SPACING_ADD,
-    var spacingMulti: Float = DEFAULT_SPACING_MULTI,
-    @IntRange(from = 1) var maxLines: Int = SINGLE_LINE,
-    @Px var maxHeight: Int? = null,
-    var highlights: TextHighlights? = null,
-    var breakStrategy: Int = 0,
-    var hyphenationFrequency: Int = 0,
-    var fadingEdge: Boolean = false,
-    var lineLastSymbolIndex: Int? = null,
-    var hasTextSizeSpans: Boolean? = null
-) {
+class LayoutConfigurator {
+
+    companion object {
+
+        fun configure(
+            config: Params.() -> Unit
+        ): Layout {
+            val params = Params().apply(config)
+            return LayoutConfigurator().configure(params)
+        }
+    }
+
+    class Params internal constructor(
+        var text: CharSequence = "",
+        var paint: TextPaint = SimpleTextPaint(),
+        var boring: BoringLayout.Metrics? = null,
+        var boringLayout: BoringLayout? = null,
+        @Px var width: Int? = null,
+        var alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
+        var ellipsize: TextUtils.TruncateAt? = TextUtils.TruncateAt.END,
+        var includeFontPad: Boolean = true,
+        var spacingAdd: Float = DEFAULT_SPACING_ADD,
+        var spacingMulti: Float = DEFAULT_SPACING_MULTI,
+        @IntRange(from = 1) var maxLines: Int = SINGLE_LINE,
+        @Px var maxHeight: Int? = null,
+        var highlights: TextHighlights? = null,
+        var breakStrategy: Int = 0,
+        var hyphenationFrequency: Int = 0,
+        var fadingEdge: Boolean = false,
+        var lineLastSymbolIndex: Int? = null,
+        var hasTextSizeSpans: Boolean? = null
+    )
 
     /**
      * Применить настройки [config] для создания [StaticLayout].
      */
-    fun build(): Layout {
-        val preparedText = text.highlightText(highlights)
-        val preparedWidth = prepareWidth(preparedText, paint, width, fadingEdge)
-        val preparedMaxLines = prepareMaxLines(preparedText, paint, maxLines, maxHeight)
-        val preparedHasTextSizeSpans = prepareHasTextSizeSpans(preparedText, hasTextSizeSpans, lineLastSymbolIndex)
-        val preparedTextLength = prepareTextLength(preparedMaxLines, preparedHasTextSizeSpans, lineLastSymbolIndex)
-        return createLayout(
-            text = preparedText,
-            width = preparedWidth,
-            textLength = preparedTextLength,
-            maxLines = preparedMaxLines
+    private fun configure(params: Params): Layout {
+        val text = params.text.highlightText(params.highlights)
+        val width = prepareWidth(text, params.paint, params.width, params.fadingEdge)
+        val maxLines = prepareMaxLines(text, params.paint, params.maxLines, params.maxHeight)
+        val hasTextSizeSpans = prepareHasTextSizeSpans(text, params.hasTextSizeSpans, params.lineLastSymbolIndex)
+        val textLength = prepareTextLength(text, maxLines, hasTextSizeSpans, params.lineLastSymbolIndex)
+
+        return LayoutCreator.createLayout(
+            text = text,
+            textLength = textLength,
+            width = width,
+            maxLines = maxLines,
+            paint = params.paint,
+            alignment = params.alignment,
+            spacingMulti = params.spacingMulti,
+            spacingAdd = params.spacingAdd,
+            includeFontPad = params.includeFontPad,
+            breakStrategy = params.breakStrategy,
+            hyphenationFrequency = params.hyphenationFrequency,
+            ellipsize = params.ellipsize,
+            boring = params.boring,
+            boringLayout = params.boringLayout
         ).apply {
-            tryHighlightEllipsize()
+            tryHighlightEllipsize(text, params.highlights)
         }
     }
 
@@ -101,6 +131,7 @@ class LayoutBuilder(
     }
 
     private fun prepareTextLength(
+        text: CharSequence,
         maxLines: Int,
         hasTextSizeSpansByParams: Boolean,
         lineLastSymbolIndex: Int?
@@ -115,39 +146,9 @@ class LayoutBuilder(
         fadingEdge && text != TextUtils.ellipsize(text, paint, width.toFloat(), TextUtils.TruncateAt.END)
 
     /**
-     * Построить [StaticLayout] по текущим параметрам конфигуратора.
-     *
-     * @param isBreakHighQuality true, если необходим качественный перенос строки
-     * с оптимизацией переносов строк по всему абзацу.
-     */
-    private fun createLayout(
-        text: CharSequence,
-        width: Int,
-        textLength: Int,
-        maxLines: Int
-    ): Layout =
-        LayoutCreator.createLayout(
-            text = text,
-            paint = paint,
-            width = width,
-            alignment = alignment,
-            length = textLength,
-            spacingMulti = spacingMulti,
-            spacingAdd = spacingAdd,
-            includeFontPad = includeFontPad,
-            maxLines = maxLines,
-            breakStrategy = breakStrategy,
-            hyphenationFrequency = hyphenationFrequency,
-            ellipsize = ellipsize,
-            boring = boring,
-            boringLayout = boringLayout
-        )
-
-    /**
      * Подсветка сокращения текста при наличии [highlights] за пределами сокращения.
      */
-    private fun Layout.tryHighlightEllipsize() {
-        val highlights = highlights
+    private fun Layout.tryHighlightEllipsize(text: CharSequence, highlights: TextHighlights?) {
         if (highlights == null || highlights.positionList.isNullOrEmpty()) return
 
         val ellipsizeIndex = text.ellipsizeIndex ?: return
@@ -161,15 +162,15 @@ class LayoutBuilder(
                 positionList = listOf(span),
                 highlightColor = highlights.highlightColor
             )
-            val spannableText = if (this is StaticLayout) this@LayoutBuilder.text else text
+            val spannableText = if (this is StaticLayout) text else this.text
             spannableText.highlightText(ellipsizeHighlight)
         }
     }
 }
 
 private const val MAX_LINES_NO_LIMIT = Integer.MAX_VALUE
-private const val DEFAULT_SPACING_ADD = 0f
-private const val DEFAULT_SPACING_MULTI = 1f
 private const val SINGLE_LINE = 1
 private const val ADDITIONAL_FADING_EDGE_WIDTH = 300
 private const val ONE_LINE_SYMBOLS_COUNT_RESERVE = 1.2f
+private const val DEFAULT_SPACING_ADD = 0f
+private const val DEFAULT_SPACING_MULTI = 1f

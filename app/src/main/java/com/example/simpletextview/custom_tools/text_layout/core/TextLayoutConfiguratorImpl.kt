@@ -310,8 +310,9 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
 
     // end region isDrawingParamsChanged
 
-    fun configure(): TextLayoutConfiguratorResult {
-        val newPaint = paint.also {
+    inline fun configure(config: TextLayoutConfig): TextLayoutConfiguratorResult {
+        config()
+        val paint = paint.also {
             if (isPaintColorChanged) it.color = color
             if (isPaintAlphaChanged) it.alpha = alpha
             if (isPaintTextSizeChanged) it.textSize = textSize
@@ -319,7 +320,7 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
         }
         val params = TextLayoutParams(
             text = text,
-            paint = newPaint,
+            paint = paint,
             alignment = alignment,
             ellipsize = ellipsize,
             includeFontPad = includeFontPad,

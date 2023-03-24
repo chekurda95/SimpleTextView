@@ -1,4 +1,4 @@
-package com.example.simpletextview.custom_tools.utils
+package com.example.simpletextview.custom_tools.utils.layout
 
 import android.os.Build
 import android.text.BoringLayout
@@ -14,7 +14,7 @@ internal object LayoutCreator {
         paint: TextPaint,
         width: Int,
         alignment: Layout.Alignment,
-        length: Int = text.length,
+        textLength: Int = text.length,
         spacingMulti: Float = DEFAULT_SPACING_MULTI,
         spacingAdd: Float = DEFAULT_SPACING_ADD,
         includeFontPad: Boolean = false,
@@ -45,7 +45,7 @@ internal object LayoutCreator {
                 paint = paint,
                 width = width,
                 alignment = alignment,
-                length = length,
+                textLength = textLength,
                 spacingMulti = spacingMulti,
                 spacingAdd = spacingAdd,
                 includeFontPad = includeFontPad,
@@ -104,7 +104,7 @@ internal object LayoutCreator {
         paint: TextPaint,
         width: Int,
         alignment: Layout.Alignment,
-        length: Int = text.length,
+        textLength: Int = text.length,
         spacingMulti: Float = DEFAULT_SPACING_MULTI,
         spacingAdd: Float = DEFAULT_SPACING_ADD,
         includeFontPad: Boolean = false,
@@ -114,7 +114,7 @@ internal object LayoutCreator {
         ellipsize: TextUtils.TruncateAt? = null
     ): StaticLayout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            StaticLayout.Builder.obtain(text, 0, length, paint, width)
+            StaticLayout.Builder.obtain(text, 0, textLength, paint, width)
                 .setAlignment(alignment)
                 .setLineSpacing(spacingAdd, spacingMulti)
                 .setIncludePad(includeFontPad)
@@ -131,7 +131,7 @@ internal object LayoutCreator {
             StaticLayout(
                 text,
                 0,
-                length,
+                textLength,
                 paint,
                 width,
                 alignment,

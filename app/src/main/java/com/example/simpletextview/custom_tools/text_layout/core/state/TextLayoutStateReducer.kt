@@ -12,7 +12,7 @@ internal class TextLayoutStateReducer(private val stateBuilder: TextLayoutStateB
     fun reduceInitialState(initialParams: TextLayoutParams, config: TextLayoutConfig?): TextLayoutState {
         val drawParams = TextLayoutDrawParams()
         val params = if (config != null) {
-            val (params, _) = TextLayoutConfiguratorImpl(initialParams).apply(config).configure()
+            val (params, _) = TextLayoutConfiguratorImpl(initialParams).configure(config)
             drawParams.textColorAlpha = params.paint.alpha
             params
         } else {
@@ -23,7 +23,7 @@ internal class TextLayoutStateReducer(private val stateBuilder: TextLayoutStateB
 
     inline operator fun invoke(state: TextLayoutState, config: TextLayoutConfig): Pair<TextLayoutState, Boolean> {
         var isStateChanged = false
-        val (params, diff) = TextLayoutConfiguratorImpl(state.params).apply(config).configure()
+        val (params, diff) = TextLayoutConfiguratorImpl(state.params).configure(config)
         val drawParams = state.drawParams
 
         if (diff.isPaintAlphaChanged) {
