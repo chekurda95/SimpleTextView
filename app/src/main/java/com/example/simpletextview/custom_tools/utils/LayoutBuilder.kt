@@ -1,6 +1,5 @@
 package com.example.simpletextview.custom_tools.utils
 
-import android.os.Build
 import android.text.BoringLayout
 import android.text.Layout
 import android.text.Spannable
@@ -37,10 +36,6 @@ class LayoutBuilder(
     private var layoutWidthByParams: Int = 0
     private var textLength: Int = 0
     private var hasTextSizeSpansByParams = false
-
-    private val isBoring: Boolean
-        get() = boring != null &&
-            ((ellipsize != null && maxLinesByParams == SINGLE_LINE) || boring!!.width <= layoutWidthByParams)
 
     /**
      * Применить настройки [config] для создания [StaticLayout].
@@ -110,75 +105,22 @@ class LayoutBuilder(
      * с оптимизацией переносов строк по всему абзацу.
      */
     private fun buildLayout(): Layout =
-        if (isBoring) {
-            buildBoring()
-        } else {
-            buildStatic()
-        }
-
-    private fun buildBoring(): BoringLayout {
-        val ellipsize = ellipsize.takeIf { boring!!.width > layoutWidthByParams }
-        val boringLayout = boringLayout
-        return if (boringLayout != null) {
-            boringLayout.replaceOrMake(
-                text,
-                paint,
-                layoutWidthByParams,
-                alignment,
-                spacingMulti,
-                spacingAdd,
-                boring,
-                includeFontPad,
-                ellipsize,
-                layoutWidthByParams
-            )
-        } else {
-            BoringLayout.make(
-                text,
-                paint,
-                layoutWidthByParams,
-                alignment,
-                spacingMulti,
-                spacingAdd,
-                boring,
-                includeFontPad,
-                ellipsize,
-                layoutWidthByParams
-            )
-        }
-    }
-
-
-    private fun buildStatic(): StaticLayout =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            StaticLayout.Builder.obtain(text, 0, textLength, paint, layoutWidthByParams)
-                .setAlignment(alignment)
-                .setLineSpacing(spacingAdd, spacingMulti)
-                .setIncludePad(includeFontPad)
-                .setMaxLines(maxLinesByParams)
-                .setBreakStrategy(breakStrategy)
-                .setHyphenationFrequency(hyphenationFrequency).apply {
-                    if (ellipsize != null) {
-                        setEllipsize(ellipsize)
-                        setEllipsizedWidth(layoutWidthByParams)
-                    }
-                }.build()
-        } else {
-            @Suppress("DEPRECATION")
-            StaticLayout(
-                text,
-                0,
-                textLength,
-                paint,
-                layoutWidthByParams,
-                alignment,
-                spacingMulti,
-                spacingAdd,
-                includeFontPad,
-                ellipsize,
-                layoutWidthByParams
-            )
-        }
+        LayoutCreator.createLayout(
+            text,
+            paint,
+            layoutWidthByParams,
+            alignment,
+            textLength,
+            spacingMulti,
+            spacingAdd,
+            includeFontPad,
+            maxLines,
+            breakStrategy,
+            hyphenationFrequency,
+            ellipsize,
+            boring,
+            boringLayout
+        )
 
     private fun isNeedFade(): Boolean =
         fadingEdge && text != TextUtils.ellipsize(text, paint, layoutWidthByParams.toFloat(), TextUtils.TruncateAt.END)
@@ -228,7 +170,8 @@ class LayoutBuilder(
                 positionList = listOf(span),
                 highlightColor = highlights.highlightColor
             )
-            this@LayoutBuilder.text.highlightText(ellipsizeHighlight)
+            val spannableText = if (this is StaticLayout) this@LayoutBuilder.text else text
+            spannableText.highlightText(ellipsizeHighlight)
         }
     }
 }
