@@ -12,6 +12,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.Px
 import androidx.annotation.StringRes
 import androidx.annotation.StyleRes
+import com.example.simpletextview.custom_tools.utils.TextHighlights
 
 /**
  * API компонента для отображения текста [SbisTextView].
@@ -74,6 +75,8 @@ interface SbisTextViewApi {
     val layout: Layout
 
     fun setText(@StringRes stringRes: Int)
+
+    fun setTextWithHighlights(text: CharSequence?, highlights: TextHighlights?)
 
     fun setTextSize(unit: Int, size: Float)
 

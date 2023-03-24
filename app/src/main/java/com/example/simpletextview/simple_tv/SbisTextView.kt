@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.TypedArray
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.Build
@@ -29,7 +30,9 @@ import androidx.core.view.isGone
 import com.example.simpletextview.R
 import com.example.simpletextview.custom_tools.text_layout.TextLayout
 import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
+import com.example.simpletextview.custom_tools.utils.HighlightSpan
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDirection
+import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import org.apache.commons.lang3.StringUtils
@@ -234,8 +237,19 @@ open class SbisTextView : View, SbisTextViewApi {
         accessibilityDelegate = TextLayoutAutoTestsHelper(this, textLayout)
     }
 
+    init {
+        textLayout.configure { highlights = TextHighlights(listOf(HighlightSpan(42, 43)), Color.YELLOW) }
+    }
+
     override fun setText(@StringRes stringRes: Int) {
         text = resources.getString(stringRes)
+    }
+
+    override fun setTextWithHighlights(text: CharSequence?, highlights: TextHighlights?) {
+        configure {
+            this.text = text ?: StringUtils.EMPTY
+            this.highlights = highlights
+        }
     }
 
     override fun setTextSize(unit: Int, size: Float) {
