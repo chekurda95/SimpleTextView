@@ -13,7 +13,7 @@ import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextL
 import com.example.simpletextview.custom_tools.text_layout.core.state.data.TextLayoutParamsDiff
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 
-internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayoutConfigurator {
+internal class TextLayoutDiffHandler(params: TextLayoutParams) : TextLayoutConfigurator {
 
     private var isTextParamsChanged: Boolean = false
     private var isPaddingParamsChanged: Boolean = false
@@ -222,14 +222,6 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
             field = value
         }
 
-    override var needHighWidthAccuracy: Boolean = params.needHighWidthAccuracy
-        set(value) {
-            if (!isTextParamsChanged) {
-                isTextParamsChanged = field != value
-            }
-            field = value
-        }
-
     // end region isTextParamsChanged
 
     // region isPaddingParamsChanged
@@ -310,7 +302,7 @@ internal class TextLayoutConfiguratorImpl(params: TextLayoutParams) : TextLayout
 
     // end region isDrawingParamsChanged
 
-    inline fun configure(config: TextLayoutConfig): TextLayoutConfiguratorResult {
+    inline fun perform(config: TextLayoutConfig): TextLayoutConfiguratorResult {
         config()
         val paint = paint.also {
             if (isPaintColorChanged) it.color = color

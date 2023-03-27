@@ -45,12 +45,9 @@ interface TextLayoutConfigurator {
     var paint: TextPaint
     var alpha: Int
     var letterSpacing: Float
-
     var includeFontPad: Boolean
     var spacingAdd: Float
     var spacingMulti: Float
     var breakStrategy: Int
     var hyphenationFrequency: Int
-
-    var needHighWidthAccuracy: Boolean
 }
