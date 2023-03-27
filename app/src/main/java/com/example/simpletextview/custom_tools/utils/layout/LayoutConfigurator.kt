@@ -18,16 +18,11 @@ import com.example.simpletextview.custom_tools.utils.highlightText
 import com.example.simpletextview.custom_tools.utils.textHeight
 import kotlin.math.ceil
 
-class LayoutConfigurator {
+object LayoutConfigurator {
 
-    companion object {
-
-        fun configure(
-            config: Params.() -> Unit
-        ): Layout {
-            val params = Params().apply(config)
-            return LayoutConfigurator().configure(params)
-        }
+    fun configure(config: Params.() -> Unit): Layout {
+        val params = Params().apply(config)
+        return configure(params)
     }
 
     class Params internal constructor(
