@@ -9,23 +9,21 @@ import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
 
 internal class TextLayoutBuildHelper {
 
-    /**
-     * Последний индекс символа в первой строке.
-     * Используется для точечной оптимизации создания многострочного [Layout] с длинным текстом.
-     */
     var precomputedData: TextLayoutPrecomputedData? = null
-        set(value) {
-            field = value
-            if (value?.boring != null) {
-                boring = value.boring
-            }
-        }
+        private set
 
     private var boring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
 
     fun getBoringMetrics(text: CharSequence, paint: TextPaint): BoringLayout.Metrics? =
         BoringLayout.isBoring(text, paint, boring)
+
+    fun updatePrecomputedData(data: TextLayoutPrecomputedData?) {
+        precomputedData = data
+        if (data?.boring != null) {
+            boring = data.boring
+        }
+    }
 
     /**
      * Обновить разметку по набору параметров [params].

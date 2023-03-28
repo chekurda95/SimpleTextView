@@ -22,6 +22,8 @@ internal class TextLayoutState(
     val drawParams: TextLayoutDrawParams
 ) {
 
+    private var layoutPrecomputedData: TextLayoutPrecomputedData? = null
+
     /**
      * Сконфигурированный текст с учетом настроек параметров.
      */
@@ -76,8 +78,8 @@ internal class TextLayoutState(
     @get:Px
     private val limitedTextWidth: Int by lazy(stateLazyMode) {
         with(params) {
-            val precomputedData = getPrecomputedData()
-            layoutBuildHelper.precomputedData = precomputedData
+            val precomputedData = createPrecomputedData()
+            layoutBuildHelper.updatePrecomputedData(precomputedData)
             precomputedData.precomputedTextWidth
         }
     }
@@ -115,20 +117,16 @@ internal class TextLayoutState(
      * Разметка, построенная по текущим параметрам [params].
      */
     val layout: Layout by lazy(stateLazyMode) {
-        with(layoutBuildHelper) {
-            if (precomputedData == null) {
-                precomputedData = getPrecomputedData(textWidth)
-            }
-            buildLayout(
-                text = text,
-                width = textWidth,
-                maxHeight = layoutMaxHeight,
-                fadingEdge = fadingEdgeHelper.useFadingEdgeForLayout,
-                params = params
-            ).also {
-                drawParams.drawingLayout = it
-                fadingEdgeHelper.updateFadeEdgeVisibility(textWidth, params)
-            }
+        checkPrecomputedData()
+        layoutBuildHelper.buildLayout(
+            text = text,
+            width = textWidth,
+            maxHeight = layoutMaxHeight,
+            fadingEdge = fadingEdgeHelper.useFadingEdgeForLayout,
+            params = params
+        ).also {
+            drawParams.drawingLayout = it
+            fadingEdgeHelper.updateFadeEdgeVisibility(textWidth, params)
         }
     }
 
@@ -220,17 +218,24 @@ internal class TextLayoutState(
 
     @Px
     fun getPrecomputedWidth(availableWidth: Int? = null): Int {
-        val textWidth = if (availableWidth == null) {
-            limitedTextWidth
-        } else {
-            val precomputedData = getPrecomputedData(availableWidth)
-            layoutBuildHelper.precomputedData = precomputedData
-            precomputedData.precomputedTextWidth
+        val currentPrecomputedData = layoutPrecomputedData
+        val textWidth = when {
+            currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth -> {
+                currentPrecomputedData.precomputedTextWidth
+            }
+            availableWidth == null -> {
+                limitedTextWidth
+            }
+            else -> {
+                val precomputedData = createPrecomputedData(availableWidth)
+                layoutBuildHelper.updatePrecomputedData(precomputedData)
+                precomputedData.precomputedTextWidth
+            }
         }
         return textWidth + horizontalPadding
     }
 
-    private fun getPrecomputedData(availableWidth: Int? = null): TextLayoutPrecomputedData {
+    private fun createPrecomputedData(availableWidth: Int? = null): TextLayoutPrecomputedData {
         val text = text
         val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
         val limitedTextWidth = availableTextWidth.coerceAtMost(maxTextWidth)
@@ -268,11 +273,26 @@ internal class TextLayoutState(
         }
 
         return TextLayoutPrecomputedData(
+            availableWidth = availableWidth,
             precomputedTextWidth = precomputedTextWidth,
             boring = isBoring,
             lineLastSymbolIndex = lineLastSymbolIndex,
             hasTextSizeSpans = hasTextSizeSpans
         )
+    }
+
+    private fun checkPrecomputedData() {
+        with(layoutBuildHelper) {
+            val checkedPrecomputedData = if (precomputedData == null) {
+                val availableWidth = textWidth + horizontalPadding
+                val newPrecomputedData = createPrecomputedData(availableWidth)
+                newPrecomputedData
+            } else {
+                precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
+            }
+            updatePrecomputedData(checkedPrecomputedData)
+            layoutPrecomputedData = checkedPrecomputedData
+        }
     }
 }
 
