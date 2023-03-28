@@ -20,9 +20,9 @@ import kotlin.math.ceil
 
 object LayoutConfigurator {
 
-    fun configure(config: Params.() -> Unit): Layout {
+    fun createLayout(config: Params.() -> Unit): Layout {
         val params = Params().apply(config)
-        return configure(params)
+        return createLayout(params)
     }
 
     class Params internal constructor(
@@ -49,7 +49,7 @@ object LayoutConfigurator {
     /**
      * Применить настройки [config] для создания [StaticLayout].
      */
-    private fun configure(params: Params): Layout {
+    private fun createLayout(params: Params): Layout {
         val text = params.text.highlightText(params.highlights)
         val width = prepareWidth(text, params.paint, params.width, params.fadingEdge)
         val maxLines = prepareMaxLines(text, params.paint, params.maxLines, params.maxHeight)

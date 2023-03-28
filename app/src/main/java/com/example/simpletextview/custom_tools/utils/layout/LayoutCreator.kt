@@ -4,10 +4,33 @@ import android.os.Build
 import android.text.BoringLayout
 import android.text.Layout
 import android.text.StaticLayout
+import android.text.TextDirectionHeuristic
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.TextUtils
+import java.lang.reflect.Constructor
 
 internal object LayoutCreator {
+
+    private val hiddenStaticConstructor: Constructor<StaticLayout> by lazy(LazyThreadSafetyMode.NONE) {
+        StaticLayout::class.java.getConstructor(
+            CharSequence::class.java,
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType,
+            TextPaint::class.java,
+            Int::class.javaPrimitiveType,
+            Layout.Alignment::class.java,
+            TextDirectionHeuristic::class.java,
+            Float::class.javaPrimitiveType,
+            Float::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType,
+            TextUtils.TruncateAt::class.java,
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType
+        ).apply {
+            isAccessible = true
+        }
+    }
 
     fun createLayout(
         text: CharSequence,
@@ -127,19 +150,20 @@ internal object LayoutCreator {
                     }
                 }.build()
         } else {
-            @Suppress("DEPRECATION")
-            StaticLayout(
+            hiddenStaticConstructor.newInstance(
                 text,
                 0,
                 textLength,
                 paint,
                 width,
                 alignment,
+                TextDirectionHeuristics.LTR,
                 spacingMulti,
                 spacingAdd,
                 includeFontPad,
                 ellipsize,
-                width
+                width,
+                maxLines
             )
         }
 

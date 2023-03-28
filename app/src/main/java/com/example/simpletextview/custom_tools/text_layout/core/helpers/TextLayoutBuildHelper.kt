@@ -39,7 +39,7 @@ internal class TextLayoutBuildHelper {
         fadingEdge: Boolean,
         params: TextLayoutParams
     ): Layout {
-        val layout = LayoutConfigurator.configure {
+        val layout = LayoutConfigurator.createLayout {
             this.text = text
             this.boring = this@TextLayoutBuildHelper.boring
             this.boringLayout = this@TextLayoutBuildHelper.boringLayout
