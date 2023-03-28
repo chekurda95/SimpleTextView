@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.simpletextview"
-        minSdk 23
+        minSdk 21
         targetSdk 33
         versionCode 1
         versionName "1.0"
