@@ -207,7 +207,7 @@ class TextLayout private constructor(
             params.copy(),
             cachedLayout,
             isLayoutChanged,
-            textPos
+            0f to 0f
         )
 
     /**
@@ -253,11 +253,6 @@ class TextLayout private constructor(
     private var isWidthChanged: Boolean = true
     private var isHeightChanged: Boolean = true
     private var isVisibleChanged: Boolean = true
-
-    /**
-     * Позиция текста для рисования с учетом внутренних отступов (координата левого верхнего угла).
-     */
-    private var textPos = params.padding.start.toFloat() to params.padding.top.toFloat()
 
     /**
      * Прозрачность цвета краски текста.
@@ -311,7 +306,8 @@ class TextLayout private constructor(
     /**
      * Координаты границ [TextLayout], полученные в [TextLayout.layout].
      */
-    private var rect = Rect()
+    private val rect = Rect()
+    private val textRect = RectF()
 
     /**
      * Идентификатор разметки.
@@ -764,13 +760,13 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     fun layout(@Px left: Int, @Px top: Int) {
-        rect.set(
-            left,
-            top,
-            left + width,
-            top + height
+        rect.set(left, top, left + width, top + height)
+        textRect.set(
+            this.left + paddingStart.toFloat(),
+            this.top + paddingTop.toFloat(),
+            this.right - paddingEnd.toFloat(),
+            this.bottom - paddingBottom.toFloat()
         )
-        textPos = left + paddingStart.toFloat() to top + paddingTop.toFloat()
 
         touchHelper.updateTouchRect()
         inspectHelper?.updatePositions()
@@ -812,10 +808,18 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withClip(rect) {
-            canvas.withRotation(rotation, left + width / 2f, top + height / 2f) {
-                inspectHelper?.draw(this)
-                withTranslation(translationX + textPos.first, translationY + textPos.second) {
+        canvas.withRotation(rotation, left + cachedWidth / 2f, top + cachedHeight / 2f) {
+            inspectHelper?.draw(this)
+            withClip(
+                left = textRect.left + translationX,
+                top = textRect.top + translationY,
+                right = textRect.right + translationX,
+                bottom = textRect.bottom + translationY
+            ) {
+                withTranslation(
+                    x = translationX + textRect.left,
+                    y = translationY + textRect.top
+                ) {
                     layout.draw(this)
                 }
             }
@@ -1451,14 +1455,7 @@ class TextLayout private constructor(
                 bottom.toFloat() - ONE_PX
             )
             borderPath.addRect(borderRectF, Path.Direction.CW)
-
-            textBackgroundPath.addRect(
-                textPos.first,
-                textPos.second,
-                textPos.first + layout.width,
-                textPos.second + layout.height,
-                Path.Direction.CW
-            )
+            textBackgroundPath.addRect(textRect, Path.Direction.CW)
             paddingPath.addRect(borderRectF, Path.Direction.CW)
             paddingPath.op(textBackgroundPath, Path.Op.DIFFERENCE)
         }
