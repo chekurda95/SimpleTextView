@@ -578,30 +578,35 @@ class TextLayout private constructor(
     ): Boolean =
         if (isLayoutChanged) {
             config.invoke(params)
-            isLayoutChanged = true
+            state.reset()
             true
         } else {
-            val oldTextSize = params.paint.textSize
-            val oldLetterSpacing = params.paint.letterSpacing
-            val oldTypeface = params.paint.typeface
-            val oldColor = params.paint.color
-            val oldParams = params.copy()
-
-            config.invoke(params)
-
-            if (oldColor != params.paint.color) {
-                textColorAlpha = params.paint.alpha
-                params.paint.alpha = (textColorAlpha * layoutAlpha).toInt()
-            }
-
-            val isTextSizeChanged =
-                oldTextSize != params.paint.textSize ||
-                        oldLetterSpacing != params.paint.letterSpacing ||
-                        oldTypeface != params.paint.typeface
-            (oldParams != params || isTextSizeChanged).also { isChanged ->
+            calculateDiff(config).also {isChanged ->
                 if (isChanged) isLayoutChanged = true
             }
         }
+
+    private fun calculateDiff(config: TextLayoutConfig): Boolean {
+        val oldTextSize = params.paint.textSize
+        val oldLetterSpacing = params.paint.letterSpacing
+        val oldTypeface = params.paint.typeface
+        val oldColor = params.paint.color
+        val oldParams = params.copy()
+
+        config.invoke(params)
+
+        if (oldColor != params.paint.color) {
+            textColorAlpha = params.paint.alpha
+            params.paint.alpha = (textColorAlpha * layoutAlpha).toInt()
+        }
+
+        val isTextSizeChanged =
+            oldTextSize != params.paint.textSize ||
+                    oldLetterSpacing != params.paint.letterSpacing ||
+                    oldTypeface != params.paint.typeface
+
+        return (oldParams != params || isTextSizeChanged)
+    }
 
     /**
      * Построить разметку.
