@@ -237,6 +237,13 @@ class TextLayout private constructor(
 
     private var cachedIsVisible = true
 
+    private var isBoring: BoringLayout.Metrics? = null
+    private var boringLayout: BoringLayout? = null
+    private var precomputedTextWidth: Int? = null
+    private var precomputedAvailableWidth: Int? = null
+    private var lineLastSymbolIndex: Int? = null
+    private var hasTextSizeSpans: Boolean? = null
+
     /**
      * Признак необходимости в построении layout при следующем обращении
      * по причине изменившихся данных.
@@ -331,7 +338,13 @@ class TextLayout private constructor(
             return if (!isLayoutChanged && cachedLayout != null) {
                 cachedLayout
             } else {
-                updateLayout()
+                createLayout().also { layout ->
+                    if (layout is BoringLayout) boringLayout = layout
+                    isLayoutChanged = false
+                    this.cachedLayout = layout
+                    updateCachedTextWidth()
+                    updateFadeEdgeVisibility()
+                }
             }
         }
 
@@ -637,24 +650,69 @@ class TextLayout private constructor(
         (it.bottom - it.top + it.leading).roundToInt() + paddingTop + paddingBottom
     }
 
-    /**
-     * Измерить ширину разметки с учетом ограничений:
-     * - [TextLayoutParams.maxWidth]
-     * - [TextLayoutParams.minWidth]
-     * - [TextLayoutParams.maxLength]
-     */
     @Px
-    fun measureWidth(): Int {
-        isBoring = BoringLayout.isBoring(params.configuredText, params.paint)
-        val textWidth = if (isBoring?.width != null) {
-            isBoring!!.width
+    fun getPrecomputedWidth(availableWidth: Int? = null): Int {
+        val currentAvailableWidth = precomputedAvailableWidth
+        val precomputedTextWidth = precomputedTextWidth
+        val textWidth = if (precomputedTextWidth != null && currentAvailableWidth == availableWidth) {
+            precomputedTextWidth
         } else {
-            params.limitedWidth
+            precomputeWidth(availableWidth)
         }
-        return paddingStart + paddingEnd + textWidth
+        return textWidth + paddingStart + paddingEnd
     }
 
-    private var isBoring: BoringLayout.Metrics? = null
+    private fun precomputeWidth(availableWidth: Int? = null): Int {
+        val horizontalPadding = paddingStart + paddingEnd
+        val text = params.configuredText
+        val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
+        val minTextWidth = maxOf(params.minWidth - horizontalPadding, 0)
+        val maxTextWidth = params.maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: Int.MAX_VALUE
+        val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
+
+        val hasTextSizeSpans = text is Spannable
+                && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
+        this.hasTextSizeSpans = hasTextSizeSpans
+        this.lineLastSymbolIndex = null
+
+        var isBoring: BoringLayout.Metrics? = null
+
+        if (text !is Spannable && text.length <= 40 &&
+            (params.maxLines == SINGLE_LINE || params.maxLines == Int.MAX_VALUE)) {
+            isBoring = BoringLayout.isBoring(text, params.paint, this.isBoring)
+        }
+        return when {
+            isBoring != null -> {
+                this.isBoring = isBoring
+                maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
+            }
+            availableWidth != null || params.maxWidth != null -> {
+                val (width, lastIndex) = params.paint.getTextWidth(
+                    text = text,
+                    maxWidth = limitedTextWidth,
+                    byLayout = hasTextSizeSpans
+                )
+                this.lineLastSymbolIndex = lastIndex
+                maxOf(width, minTextWidth)
+            }
+            else -> {
+                val width = params.paint.getTextWidth(text = text, byLayout = hasTextSizeSpans)
+                maxOf(minOf(width, limitedTextWidth), minTextWidth)
+            }
+        }
+    }
+
+    /*private fun checkPrecomputedData() {
+        val textWidth = params.textWidth
+        val checkedPrecomputedData = if (precomputedData == null) {
+            val availableWidth = textWidth + paddingStart + paddingEnd
+            val newPrecomputedData = createPrecomputedData(availableWidth)
+            newPrecomputedData
+        } else {
+            precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
+        }
+        precomputedData = checkedPrecomputedData
+    }*/
 
     /**
      * Копировать текстовую разметку c текущими [params].
@@ -928,32 +986,27 @@ class TextLayout private constructor(
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
      */
-    private fun updateLayout(): Layout {
-        val layout = LayoutConfigurator.createLayout {
+    private fun createLayout(): Layout =
+        LayoutConfigurator.createLayout {
             text = params.configuredText
+            width = precomputedTextWidth ?: params.textWidth
             paint = params.paint
-            width = params.textWidth
+            maxHeight = maxHeight?.let { maxOf(it - paddingTop - paddingBottom, 0) }
             alignment = params.alignment
             ellipsize = params.ellipsize
             includeFontPad = params.includeFontPad
             spacingAdd = params.spacingAdd
             spacingMulti = params.spacingMulti
             maxLines = params.maxLines
-            maxHeight = params.textMaxHeight
             highlights = params.highlights
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-            boring = isBoring
+            hasTextSizeSpans = this@TextLayout.hasTextSizeSpans
+            lineLastSymbolIndex = this@TextLayout.lineLastSymbolIndex
+            boring = this@TextLayout.isBoring
+            boringLayout = this@TextLayout.boringLayout
         }
-        layout.also {
-            isLayoutChanged = false
-            cachedLayout = it
-            updateCachedTextWidth()
-            updateFadeEdgeVisibility()
-        }
-        return layout
-    }
 
     /**
      * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
