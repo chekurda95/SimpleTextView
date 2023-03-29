@@ -85,10 +85,10 @@ object LayoutConfigurator {
         width: Int?,
         fadingEdge: Boolean
     ): Int =
-        when {
-            width != null && width >= 0 -> width
-            text is Spannable -> paint.getTextWidth(text, byLayout = true)
-            else -> paint.getTextWidth(text)
+        if (width != null && width >= 0) {
+            width
+        } else {
+            paint.getTextWidth(text, byLayout = text is Spannable)
         }.let { layoutWidth ->
             val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdge)) ADDITIONAL_FADING_EDGE_WIDTH else 0
             layoutWidth + additional
