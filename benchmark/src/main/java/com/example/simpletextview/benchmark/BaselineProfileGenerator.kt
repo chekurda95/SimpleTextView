@@ -23,6 +23,8 @@ class BaselineProfileGenerator {
         startActivityAndWait()
         val button = device.findObject(By.text("SBIS"))
         button.click()
+        val button2 = device.findObject(By.text("COMPAT"))
+        button2.click()
         device.waitForIdle()
     }
 }
