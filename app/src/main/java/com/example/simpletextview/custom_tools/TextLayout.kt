@@ -237,12 +237,9 @@ class TextLayout private constructor(
 
     private var cachedIsVisible = true
 
+    private var precomputedData: TextLayoutPrecomputedData? = null
     private var isBoring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
-    private var precomputedTextWidth: Int? = null
-    private var precomputedAvailableWidth: Int? = null
-    private var lineLastSymbolIndex: Int? = null
-    private var hasTextSizeSpans: Boolean? = null
 
     /**
      * Признак необходимости в построении layout при следующем обращении
@@ -652,17 +649,18 @@ class TextLayout private constructor(
 
     @Px
     fun getPrecomputedWidth(availableWidth: Int? = null): Int {
-        val currentAvailableWidth = precomputedAvailableWidth
-        val precomputedTextWidth = precomputedTextWidth
-        val textWidth = if (precomputedTextWidth != null && currentAvailableWidth == availableWidth) {
-            precomputedTextWidth
+        val currentPrecomputedData = precomputedData
+        val textWidth = if (currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth) {
+            currentPrecomputedData.precomputedTextWidth
         } else {
-            precomputeWidth(availableWidth)
+            val precomputedData = createPrecomputedData(availableWidth)
+            this.precomputedData = precomputedData
+            precomputedData.precomputedTextWidth
         }
         return textWidth + paddingStart + paddingEnd
     }
 
-    private fun precomputeWidth(availableWidth: Int? = null): Int {
+    private fun createPrecomputedData(availableWidth: Int? = null): TextLayoutPrecomputedData {
         val horizontalPadding = paddingStart + paddingEnd
         val text = params.configuredText
         val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
@@ -671,17 +669,15 @@ class TextLayout private constructor(
         val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
 
         val hasTextSizeSpans = text is Spannable
-                && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
-        this.hasTextSizeSpans = hasTextSizeSpans
-        this.lineLastSymbolIndex = null
-
+            && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
         var isBoring: BoringLayout.Metrics? = null
+        var lineLastSymbolIndex: Int? = null
 
         if (text !is Spannable && text.length <= 40 &&
             (params.maxLines == SINGLE_LINE || params.maxLines == Int.MAX_VALUE)) {
             isBoring = BoringLayout.isBoring(text, params.paint, this.isBoring)
         }
-        return when {
+        val precomputedTextWidth = when {
             isBoring != null -> {
                 this.isBoring = isBoring
                 maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
@@ -692,7 +688,7 @@ class TextLayout private constructor(
                     maxWidth = limitedTextWidth,
                     byLayout = hasTextSizeSpans
                 )
-                this.lineLastSymbolIndex = lastIndex
+                lineLastSymbolIndex = lastIndex
                 maxOf(width, minTextWidth)
             }
             else -> {
@@ -700,10 +696,15 @@ class TextLayout private constructor(
                 maxOf(minOf(width, limitedTextWidth), minTextWidth)
             }
         }
+        return TextLayoutPrecomputedData(
+            availableWidth = availableWidth,
+            precomputedTextWidth = precomputedTextWidth,
+            lineLastSymbolIndex = lineLastSymbolIndex,
+            hasTextSizeSpans = hasTextSizeSpans
+        )
     }
 
-    /*private fun checkPrecomputedData() {
-        val textWidth = params.textWidth
+    private fun checkPrecomputedData(textWidth: Int) {
         val checkedPrecomputedData = if (precomputedData == null) {
             val availableWidth = textWidth + paddingStart + paddingEnd
             val newPrecomputedData = createPrecomputedData(availableWidth)
@@ -712,7 +713,7 @@ class TextLayout private constructor(
             precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
         }
         precomputedData = checkedPrecomputedData
-    }*/
+    }
 
     /**
      * Копировать текстовую разметку c текущими [params].
@@ -986,10 +987,12 @@ class TextLayout private constructor(
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
      */
-    private fun createLayout(): Layout =
-        LayoutConfigurator.createLayout {
+    private fun createLayout(): Layout {
+        val textWidth = params.textWidth
+        checkPrecomputedData(textWidth)
+        return LayoutConfigurator.createLayout {
             text = params.configuredText
-            width = precomputedTextWidth ?: params.textWidth
+            width = precomputedData?.precomputedTextWidth ?: textWidth
             paint = params.paint
             maxHeight = maxHeight?.let { maxOf(it - paddingTop - paddingBottom, 0) }
             alignment = params.alignment
@@ -1002,11 +1005,13 @@ class TextLayout private constructor(
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-            hasTextSizeSpans = this@TextLayout.hasTextSizeSpans
-            lineLastSymbolIndex = this@TextLayout.lineLastSymbolIndex
+            hasTextSizeSpans = precomputedData?.hasTextSizeSpans
+            lineLastSymbolIndex = precomputedData?.lineLastSymbolIndex
             boring = this@TextLayout.isBoring
             boringLayout = this@TextLayout.boringLayout
         }
+    }
+
 
     /**
      * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
@@ -1536,6 +1541,13 @@ class TextLayout private constructor(
         val cachedLayout: Layout?,
         val isLayoutChanged: Boolean,
         val textPos: Pair<Float, Float>
+    )
+
+    private class TextLayoutPrecomputedData(
+        val availableWidth: Int?,
+        val precomputedTextWidth: Int,
+        val lineLastSymbolIndex: Int? = null,
+        val hasTextSizeSpans: Boolean? = null
     )
 }
 
