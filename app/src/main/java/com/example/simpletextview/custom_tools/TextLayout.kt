@@ -41,8 +41,6 @@ import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
-import java.lang.Integer.MAX_VALUE
-import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -200,46 +198,15 @@ class TextLayout private constructor(
     private val inspectHelper = if (isInspectMode) InspectHelper() else null
 
     /**
-     * Получить снимок состояния [TextLayout].
-     */
-    internal val state: TextLayoutState
-        get() = TextLayoutState(
-            params.copy(),
-            cachedLayout,
-            isLayoutChanged,
-            0f to 0f
-        )
-
-    /**
      * Текущая текстовая разметка.
      * Лениво инициализируется при первом обращении к [TextLayout.layout].
      */
-    private var cachedLayout: Layout? = null
+    private var drawingLayout: Layout? = null
 
-    /**
-     * Признак необходимости затенения каря текста, когда он не помещается в рзметку
-     */
-    private var isFadeEdgeVisible: Boolean = false
-
-    /**
-     * Текущая ширина текста без учета оступов.
-     * Лениво инициализируется при первом обращении к [layout], если разметка изменилась [isLayoutChanged].
-     */
-    @Px
-    private var cachedTextWidth: Int = 0
-        get() = layout.let { field }
-
-    @Px
-    private var cachedWidth = 0
-
-    @Px
-    private var cachedHeight = 0
-
-    private var cachedIsVisible = true
-
-    private var precomputedData: TextLayoutPrecomputedData? = null
+    private var precomputedData: PrecomputedLayoutData? = null
     private var isBoring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
+    private val state = CachedState()
 
     /**
      * Признак необходимости в построении layout при следующем обращении
@@ -248,15 +215,8 @@ class TextLayout private constructor(
     private var isLayoutChanged: Boolean = true
         set(value) {
             field = value
-            if (value) {
-                isWidthChanged = true
-                isHeightChanged = true
-                isVisibleChanged = true
-            }
+            if (value) state.reset()
         }
-    private var isWidthChanged: Boolean = true
-    private var isHeightChanged: Boolean = true
-    private var isVisibleChanged: Boolean = true
 
     /**
      * Прозрачность цвета краски текста.
@@ -264,35 +224,16 @@ class TextLayout private constructor(
     private var textColorAlpha = textPaint.alpha
 
     /**
-     * Минимальная высота текста по заданным [TextLayoutParams.minLines].
+     * Признак необходимости затенения каря текста, когда он не помещается в рзметку
      */
-    @get:Px
-    private val minHeightByLines: Int
-        get() {
-            val layoutHeight = when {
-                minLines <= 0 || !isVisible -> 0
-                maxLines <= lineCount -> layout.getLineTop(maxLines)
-                minLines <= lineCount -> layout.height
-                else -> {
-                    val lineHeight = with(params) {
-                        (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
-                    }
-                    layout.height + (minLines - layout.lineCount) * lineHeight
-                }
-            }
-            return layoutHeight + paddingTop + paddingBottom
-        }
-
+    private var isFadeEdgeVisible: Boolean = false
     private val fadeMatrix by lazy { Matrix() }
-
     private val fadePaint by lazy {
         Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
         }
     }
-
     private var fadeShader: Lazy<Shader>? = null
-
     private fun createFadeShader(): Lazy<Shader> = lazy {
         LinearGradient(
             0f,
@@ -331,15 +272,14 @@ class TextLayout private constructor(
      */
     val layout: Layout
         get() {
-            val cachedLayout = cachedLayout
+            val cachedLayout = drawingLayout
             return if (!isLayoutChanged && cachedLayout != null) {
                 cachedLayout
             } else {
                 createLayout().also { layout ->
                     if (layout is BoringLayout) boringLayout = layout
                     isLayoutChanged = false
-                    this.cachedLayout = layout
-                    updateCachedTextWidth()
+                    this.drawingLayout = layout
                     updateFadeEdgeVisibility()
                 }
             }
@@ -355,15 +295,7 @@ class TextLayout private constructor(
      * Видимость разметки.
      */
     val isVisible: Boolean
-        get() = if (isVisibleChanged) {
-            val result = params.isVisible.let {
-                if (!params.isVisibleWhenBlank) it && params.text.isNotBlank()
-                else it
-            }
-            cachedIsVisible = result
-            isVisibleChanged = false
-            result
-        } else cachedIsVisible
+        get() = state.isVisible
 
     /**
      * Максимальное количество строк.
@@ -452,23 +384,7 @@ class TextLayout private constructor(
      */
     @get:Px
     val width: Int
-        get() = if (isWidthChanged) {
-            val result = if (isVisible) {
-                params.layoutWidth
-                    ?: maxOf(
-                        params.minWidth,
-                        minOf(
-                            paddingStart + cachedTextWidth + paddingEnd,
-                            params.maxWidth ?: MAX_VALUE
-                        )
-                    )
-            } else 0
-            cachedWidth = result
-            isWidthChanged = false
-            result
-        } else {
-            cachedWidth
-        }
+        get() = state.width
 
     /**
      * Высота всей разметки.
@@ -479,26 +395,14 @@ class TextLayout private constructor(
      */
     @get:Px
     val height: Int
-        get() = if (isHeightChanged) {
-            val result = when {
-                !isVisible -> 0
-                width != 0 -> {
-                    maxOf(params.minHeight, minHeightByLines)
-                        .coerceAtMost(params.maxHeight ?: MAX_VALUE)
-                }
-                else -> maxOf(params.minHeight, minHeightByLines)
-            }
-            cachedHeight = result
-            isHeightChanged = false
-            result
-        } else cachedHeight
+        get() = state.height
 
     /**
      * Базовая линия текстовой разметки.
      */
     @get:Px
     val baseline: Int
-        get() = paddingTop + (cachedLayout?.getLineBaseline(0) ?: 0)
+        get() = paddingTop + (drawingLayout?.getLineBaseline(0) ?: 0)
 
     /**
      * Прозрачность текста разметки.
@@ -634,86 +538,21 @@ class TextLayout private constructor(
      * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
     @Px
-    fun getDesiredWidth(text: CharSequence? = null): Int {
-        val resultText = text ?: params.text
-        return paddingStart + params.paint.getTextWidth(resultText) + paddingEnd
-    }
+    fun getDesiredWidth(text: CharSequence? = null): Int =
+        state.horizontalPadding + params.paint.getTextWidth(text ?: state.configuredText)
 
     /**
      * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
      */
     @Px
-    fun getDesiredHeight(): Int = textPaint.fontMetrics.let {
-        (it.bottom - it.top + it.leading).roundToInt() + paddingTop + paddingBottom
-    }
+    fun getDesiredHeight(): Int =
+        with(params.paint.fontMetrics) {
+            (bottom - top + leading).roundToInt() + state.verticalPadding
+        }
 
     @Px
-    fun getPrecomputedWidth(availableWidth: Int? = null): Int {
-        val currentPrecomputedData = precomputedData
-        val textWidth = if (currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth) {
-            currentPrecomputedData.precomputedTextWidth
-        } else {
-            val precomputedData = createPrecomputedData(availableWidth)
-            this.precomputedData = precomputedData
-            precomputedData.precomputedTextWidth
-        }
-        return textWidth + paddingStart + paddingEnd
-    }
-
-    private fun createPrecomputedData(availableWidth: Int? = null): TextLayoutPrecomputedData {
-        val horizontalPadding = paddingStart + paddingEnd
-        val text = params.configuredText
-        val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
-        val minTextWidth = maxOf(params.minWidth - horizontalPadding, 0)
-        val maxTextWidth = params.maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: Int.MAX_VALUE
-        val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
-
-        val hasTextSizeSpans = text is Spannable
-            && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
-        var isBoring: BoringLayout.Metrics? = null
-        var lineLastSymbolIndex: Int? = null
-
-        if (text !is Spannable && text.length <= 40 &&
-            (params.maxLines == SINGLE_LINE || params.maxLines == Int.MAX_VALUE)) {
-            isBoring = BoringLayout.isBoring(text, params.paint, this.isBoring)
-        }
-        val precomputedTextWidth = when {
-            isBoring != null -> {
-                this.isBoring = isBoring
-                maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
-            }
-            availableWidth != null || params.maxWidth != null -> {
-                val (width, lastIndex) = params.paint.getTextWidth(
-                    text = text,
-                    maxWidth = limitedTextWidth,
-                    byLayout = hasTextSizeSpans
-                )
-                lineLastSymbolIndex = lastIndex
-                maxOf(width, minTextWidth)
-            }
-            else -> {
-                val width = params.paint.getTextWidth(text = text, byLayout = hasTextSizeSpans)
-                maxOf(minOf(width, limitedTextWidth), minTextWidth)
-            }
-        }
-        return TextLayoutPrecomputedData(
-            availableWidth = availableWidth,
-            precomputedTextWidth = precomputedTextWidth,
-            lineLastSymbolIndex = lineLastSymbolIndex,
-            hasTextSizeSpans = hasTextSizeSpans
-        )
-    }
-
-    private fun checkPrecomputedData(textWidth: Int) {
-        val checkedPrecomputedData = if (precomputedData == null) {
-            val availableWidth = textWidth + paddingStart + paddingEnd
-            val newPrecomputedData = createPrecomputedData(availableWidth)
-            newPrecomputedData
-        } else {
-            precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
-        }
-        precomputedData = checkedPrecomputedData
-    }
+    fun getPrecomputedWidth(availableWidth: Int? = null): Int =
+        state.getPrecomputedWidth(availableWidth)
 
     /**
      * Копировать текстовую разметку c текущими [params].
@@ -739,6 +578,7 @@ class TextLayout private constructor(
     ): Boolean =
         if (isLayoutChanged) {
             config.invoke(params)
+            isLayoutChanged = true
             true
         } else {
             val oldTextSize = params.paint.textSize
@@ -834,11 +674,11 @@ class TextLayout private constructor(
     /**
      * Нарисовать разметку.
      *
-     * Рисуется именно кэш текстовой разметки [cachedLayout],
+     * Рисуется именно кэш текстовой разметки [drawingLayout],
      * чтобы не допускать построения layout на [View.onDraw].
      */
     fun draw(canvas: Canvas) {
-        cachedLayout?.let { layout ->
+        drawingLayout?.let { layout ->
             if (!isVisible || params.text.isEmpty()) return
 
             if (isFadeEdgeVisible) {
@@ -867,7 +707,7 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withRotation(rotation, left + cachedWidth / 2f, top + cachedHeight / 2f) {
+        canvas.withRotation(rotation, left + rect.width() / 2f, top + rect.height() / 2f) {
             inspectHelper?.draw(this)
             withClip(
                 left = textRect.left + translationX,
@@ -985,16 +825,15 @@ class TextLayout private constructor(
     /**
      * Обновить разметку по набору параметров [params].
      * Если ширина в [params] не задана, то будет использована ширина текста.
-     * Созданная разметка помещается в кэш [cachedLayout].
+     * Созданная разметка помещается в кэш [drawingLayout].
      */
     private fun createLayout(): Layout {
-        val textWidth = params.textWidth
-        checkPrecomputedData(textWidth)
+        state.checkPrecomputedData()
         return LayoutConfigurator.createLayout {
-            text = params.configuredText
-            width = precomputedData?.precomputedTextWidth ?: textWidth
+            text = state.configuredText
+            width = precomputedData?.precomputedTextWidth ?: state.textWidth
             paint = params.paint
-            maxHeight = maxHeight?.let { maxOf(it - paddingTop - paddingBottom, 0) }
+            maxHeight = state.layoutMaxHeight
             alignment = params.alignment
             ellipsize = params.ellipsize
             includeFontPad = params.includeFontPad
@@ -1012,18 +851,6 @@ class TextLayout private constructor(
         }
     }
 
-
-    /**
-     * Обновить кэш ширины текста без учета отступов [cachedTextWidth].
-     */
-    private fun updateCachedTextWidth() {
-        cachedTextWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
-            layout.getLineWidth(0).roundToInt()
-        } else {
-            layout.width
-        }
-    }
-
     /**
      * Обновить признак затенения каря для слишком длинного текста [isFadeEdgeVisible].
      */
@@ -1033,7 +860,7 @@ class TextLayout private constructor(
                 && params.text != TextUtils.ellipsize(
             text,
             textPaint,
-            params.textWidth.toFloat(),
+            state.textWidth.toFloat(),
             TruncateAt.END
         )
     }
@@ -1098,58 +925,6 @@ class TextLayout private constructor(
     ) {
 
         /**
-         * Ширина текста.
-         */
-        @get:Px
-        internal val textWidth: Int
-            get() {
-                val layoutWidth = layoutWidth
-                return if (layoutWidth != null) {
-                    maxOf(layoutWidth - padding.start - padding.end, 0)
-                } else {
-                    limitedWidth
-                }
-            }
-
-        /**
-         * Ширина текста с учетом ограничений.
-         */
-        @get:Px
-        internal val limitedWidth: Int
-            get() {
-                val horizontalPadding = padding.start + padding.end
-                val text = configuredText
-                val containsAbsoluteSizeSpans = text is Spannable
-                        && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
-                val textWidth = if (containsAbsoluteSizeSpans) {
-                    ceil(Layout.getDesiredWidth(text, paint)).toInt()
-                } else {
-                    paint.getTextWidth(text)
-                }
-                val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
-                val maxTextWidth = maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: MAX_VALUE
-                return maxOf(minTextWidth, minOf(textWidth, maxTextWidth))
-            }
-
-        /**
-         * Максимальная высота текста.
-         */
-        @get:Px
-        internal val textMaxHeight: Int?
-            get() = maxHeight?.let { maxOf(it - padding.top - padding.bottom, 0) }
-
-        /**
-         * Сконфигурированный текст с учетом настроек параметров.
-         */
-        internal val configuredText: CharSequence
-            get() = when {
-                maxLength == Int.MAX_VALUE || maxLength < 0 -> text
-                text.isEmpty() -> text
-                maxLength >= text.length -> text
-                else -> text.subSequence(0, maxLength)
-            }
-
-        /**
          * Копировать параметры.
          */
         fun copyParams(): TextLayoutParams = copy(
@@ -1170,6 +945,269 @@ class TextLayout private constructor(
         @Px val end: Int = 0,
         @Px val bottom: Int = 0
     )
+
+    private inner class CachedState {
+
+        private var _configuredText: CharSequence? = null
+        private var _horizontalPadding: Int? = null
+        private var _verticalPadding: Int? = null
+        private var _textWidth: Int? = null
+        private var _maxTextWidth: Int? = null
+        private var _minTextWidth: Int? = null
+        private var _limitedTextWidth: Int? = null
+        private var _minHeightByLines: Int? = null
+        private var _layoutMaxHeight: Int? = null
+        private var _isVisible: Boolean? = null
+        private var _width: Int? = null
+        private var _height: Int? = null
+
+        fun reset() {
+            _configuredText = null
+            _horizontalPadding = null
+            _verticalPadding = null
+            _textWidth = null
+            _maxTextWidth = null
+            _minTextWidth = null
+            _limitedTextWidth = null
+            _minHeightByLines = null
+            _layoutMaxHeight = null
+            _isVisible = null
+            _width = null
+            _height = null
+        }
+
+        /**
+         * Сконфигурированный текст с учетом настроек параметров.
+         */
+        val configuredText: CharSequence
+            get() = _configuredText ?: with(params) {
+                when {
+                    maxLength == Int.MAX_VALUE || maxLength < 0 -> text
+                    text.isEmpty() -> text
+                    maxLength >= text.length -> text
+                    else -> text.subSequence(0, maxLength)
+                }.also { _configuredText = it }
+            }
+
+        val horizontalPadding: Int
+            get() = _horizontalPadding
+                ?: (params.padding.start + params.padding.end).also {
+                    _horizontalPadding = it
+                }
+
+        val verticalPadding: Int
+            get() = _verticalPadding
+                ?: (params.padding.top + params.padding.bottom).also {
+                    _verticalPadding = it
+                }
+
+        /**
+         * Ширина текста.
+         */
+        @get:Px
+        val textWidth: Int
+            get() = _textWidth
+                ?: with(params) {
+                    val textWidth = layoutWidth?.let { width ->
+                        maxOf(width - horizontalPadding, 0)
+                    } ?: limitedTextWidth
+                    _textWidth = textWidth
+                    textWidth
+                }
+
+        @get:Px
+        val maxTextWidth: Int
+            get() = _maxTextWidth
+                ?: with(params) {
+                    val maxTextWidth = maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: Integer.MAX_VALUE
+                    _maxTextWidth = maxTextWidth
+                    maxTextWidth
+                }
+
+        @get:Px
+        val minTextWidth: Int
+            get() = _minTextWidth
+                ?: with(params) {
+                    val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
+                    _minTextWidth = minTextWidth
+                    minTextWidth
+                }
+        /**
+         * Ширина текста с учетом ограничений.
+         */
+        @get:Px
+        val limitedTextWidth: Int
+            get() = _limitedTextWidth
+                ?: with(params) {
+                    val resultData = createPrecomputedData()
+                    precomputedData = resultData
+                    _limitedTextWidth = resultData.precomputedTextWidth
+                    resultData.precomputedTextWidth
+                }
+
+        /**
+         * Минимальная высота текста по заданным [TextLayoutParams.minLines].
+         */
+        @get:Px
+        val minHeightByLines: Int
+            get() = if (_minHeightByLines != null) {
+                _minHeightByLines!!
+            } else {
+                val layoutHeight = when {
+                    params.minLines <= 0 || !isVisible -> 0
+                    params.maxLines <= layout.lineCount -> layout.getLineTop(params.maxLines)
+                    params.minLines <= layout.lineCount -> layout.height
+                    else -> {
+                        val lineHeight = with(params) {
+                            (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
+                        }
+                        layout.height + (params.minLines - layout.lineCount) * lineHeight
+                    }
+                }
+                val minHeightByLines = layoutHeight + verticalPadding
+                _minHeightByLines = minHeightByLines
+                minHeightByLines
+            }
+
+        /**
+         * Максимальная высота текста.
+         */
+        @get:Px
+        val layoutMaxHeight: Int?
+            get() = _layoutMaxHeight
+                ?: with(params) {
+                    val layoutMaxHeight = maxHeight?.let { maxOf(it - verticalPadding, 0) }
+                    _layoutMaxHeight = layoutMaxHeight
+                    layoutMaxHeight
+                }
+
+        /**
+         * Видимость разметки.
+         */
+        val isVisible: Boolean
+            get() = _isVisible
+                ?: with(params) {
+                    if (!isVisibleWhenBlank) {
+                        isVisible && text.isNotBlank()
+                    } else {
+                        isVisible
+                    }.also { _isVisible = it }
+                }
+
+        /**
+         * Ширина всей разметки.
+         *
+         * Обращение к полю вызывает построение [StaticLayout], если ранее он еще не был создан,
+         * или если [params] разметки были изменены путем вызова [configure],
+         * в иных случаях лишнего построения не произойдет.
+         */
+        @get:Px
+        val width: Int
+            get() = _width
+                ?: if (params.layoutWidth != null) {
+                    params.layoutWidth!!
+                } else {
+                    val layoutWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
+                        layout.getLineWidth(0).roundToInt()
+                    } else {
+                        layout.width
+                    }
+                    (layoutWidth + horizontalPadding)
+                        .coerceAtMost(params.maxWidth ?: Int.MAX_VALUE)
+                        .coerceAtLeast(params.minWidth)
+                }.also { _width = it  }
+
+        /**
+         * Высота всей разметки.
+         *
+         * Обращение к полю вызывает построение [StaticLayout], если ранее он еще не был создан,
+         * или если [params] разметки были изменены путем вызова [configure],
+         * в иных случаях лишнего построения не произойдет.
+         */
+        @get:Px
+        val height: Int
+            get() = _height
+                ?: if (isVisible) {
+                    params.minHeight
+                        .coerceAtLeast(minHeightByLines)
+                        .coerceAtMost(params.maxHeight ?: Int.MAX_VALUE)
+                } else {
+                    0
+                }.also { _height = it }
+
+        @Px
+        fun getPrecomputedWidth(availableWidth: Int? = null): Int {
+            val currentPrecomputedData = precomputedData
+            val textWidth = when {
+                currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth -> {
+                    currentPrecomputedData.precomputedTextWidth
+                }
+                availableWidth == null -> {
+                    limitedTextWidth
+                }
+                else -> {
+                    val resultData = createPrecomputedData(availableWidth)
+                    precomputedData = resultData
+                    resultData.precomputedTextWidth
+                }
+            }
+            return textWidth + horizontalPadding
+        }
+
+        fun checkPrecomputedData() {
+            val checkedPrecomputedData = if (precomputedData == null) {
+                val availableWidth = textWidth + paddingStart + paddingEnd
+                val newPrecomputedData = createPrecomputedData(availableWidth)
+                newPrecomputedData
+            } else {
+                precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
+            }
+            precomputedData = checkedPrecomputedData
+        }
+
+        private fun createPrecomputedData(availableWidth: Int? = null): PrecomputedLayoutData {
+            val text = configuredText
+            val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
+            val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
+
+            val hasTextSizeSpans = text is Spannable
+                    && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
+
+            var isBoring: BoringLayout.Metrics? = null
+            var lineLastSymbolIndex: Int? = null
+
+            if (text !is Spannable && text.length <= 40 &&
+                (params.maxLines == SINGLE_LINE || params.maxLines == Int.MAX_VALUE)) {
+                isBoring = BoringLayout.isBoring(text, params.paint, this@TextLayout.isBoring)
+            }
+            val precomputedTextWidth = when {
+                isBoring != null -> {
+                    this@TextLayout.isBoring = isBoring
+                    maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
+                }
+                availableWidth != null || params.maxWidth != null -> {
+                    val (width, lastIndex) = params.paint.getTextWidth(
+                        text = text,
+                        maxWidth = limitedTextWidth,
+                        byLayout = hasTextSizeSpans
+                    )
+                    lineLastSymbolIndex = lastIndex
+                    maxOf(width, minTextWidth)
+                }
+                else -> {
+                    val width = params.paint.getTextWidth(text = text, byLayout = hasTextSizeSpans)
+                    maxOf(minOf(width, limitedTextWidth), minTextWidth)
+                }
+            }
+
+            return PrecomputedLayoutData(
+                availableWidth = availableWidth,
+                precomputedTextWidth = precomputedTextWidth,
+                lineLastSymbolIndex = lineLastSymbolIndex,
+                hasTextSizeSpans = hasTextSizeSpans
+            )
+        }
+    }
 
     /**
      * Вспомогательный класс для обработки касаний по [TextLayout].
@@ -1529,21 +1567,7 @@ class TextLayout private constructor(
         }
     }
 
-    /**
-     * Модель внутреннего состояния [TextLayout].
-     * @see TextLayout.params
-     * @see TextLayout.cachedLayout
-     * @see TextLayout.isLayoutChanged
-     * @see TextLayout.textPos
-     */
-    internal data class TextLayoutState(
-        val params: TextLayoutParams,
-        val cachedLayout: Layout?,
-        val isLayoutChanged: Boolean,
-        val textPos: Pair<Float, Float>
-    )
-
-    private class TextLayoutPrecomputedData(
+    private class PrecomputedLayoutData(
         val availableWidth: Int?,
         val precomputedTextWidth: Int,
         val lineLastSymbolIndex: Int? = null,
