@@ -29,7 +29,6 @@ import androidx.core.content.res.ResourcesCompat.ID_NULL
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
-import com.example.simpletextview.BuildConfig
 import org.apache.commons.lang3.StringUtils
 import com.example.simpletextview.custom_tools.TextLayout.*
 import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
@@ -41,9 +40,7 @@ import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
-import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
 import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
-import timber.log.Timber
 import java.lang.Integer.MAX_VALUE
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -338,7 +335,7 @@ class TextLayout private constructor(
             return if (!isLayoutChanged && cachedLayout != null) {
                 cachedLayout
             } else {
-                updateStaticLayout()
+                updateLayout()
             }
         }
 
@@ -696,7 +693,7 @@ class TextLayout private constructor(
             val oldParams = params.copy()
 
             config.invoke(params)
-            //checkWarnings()
+
             if (oldColor != params.paint.color) {
                 textColorAlpha = params.paint.alpha
                 params.paint.alpha = (textColorAlpha * alpha).toInt()
@@ -927,7 +924,7 @@ class TextLayout private constructor(
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [cachedLayout].
      */
-    private fun updateStaticLayout(): Layout {
+    private fun updateLayout(): Layout {
         val layout = LayoutConfigurator.createLayout {
             text = params.configuredText
             paint = params.paint
@@ -977,32 +974,6 @@ class TextLayout private constructor(
             params.textWidth.toFloat(),
             TruncateAt.END
         )
-    }
-
-    private fun checkWarnings() {
-        val layoutWidth = params.layoutWidth
-        if (!BuildConfig.DEBUG || layoutWidth == null) return
-
-        val minWidth = params.minWidth
-        val maxWidth = params.maxWidth
-        if (minWidth > 0 && layoutWidth < minWidth) {
-            Timber.e(
-                IllegalArgumentException(
-                    "Потенциальная ошибка отображения TextLayout: " +
-                            "значение параметра layoutWidth(${params.layoutWidth}) меньше minWidth(${params.minWidth}). " +
-                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
-                )
-            )
-        }
-        if (maxWidth != null && layoutWidth > maxWidth) {
-            Timber.e(
-                IllegalArgumentException(
-                    "Потенциальная ошибка отображения TextLayout: " +
-                            "значение параметра layoutWidth(${params.layoutWidth}) больше maxWidth(${params.maxWidth}). " +
-                            "Приоритетное значение размера - layoutWidth(${params.layoutWidth}). TextLayoutParams = $params"
-                )
-            )
-        }
     }
 
     /**
