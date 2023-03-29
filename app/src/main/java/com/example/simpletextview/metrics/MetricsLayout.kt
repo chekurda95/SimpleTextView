@@ -13,6 +13,10 @@ class MetricsLayout @JvmOverloads constructor(
     defStyle: Int = 0
 ) : LinearLayout(context, attrs, defAttr, defStyle) {
 
+    companion object {
+        private var toast: Toast? = null
+    }
+
     private var onMeasureTimeMcs = 0L
     private var onLayoutTimeMcs = 0L
     private var measureCount = 0L
@@ -45,7 +49,9 @@ class MetricsLayout @JvmOverloads constructor(
             Looper.getMainLooper().queue.addIdleHandler {
                 if (!wasLogged) {
                     val text = "full = ${inflateTime + onMeasureTimeMcs + onLayoutTimeMcs}, inflate = $inflateTime, measure($measureCount) = $onMeasureTimeMcs, layout($layoutCount) = $onLayoutTimeMcs"
-                    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                    toast?.cancel()
+                    toast = Toast.makeText(context, text, Toast.LENGTH_LONG)
+                    toast?.show()
                     wasLogged = true
                 }
                 return@addIdleHandler false
