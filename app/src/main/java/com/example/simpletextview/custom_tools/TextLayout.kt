@@ -887,10 +887,8 @@ class TextLayout private constructor(
      * @property maxWidth максимальная ширина разметки.
      * @property maxHeight максимальная высота разметки с учетом [padding]. Необходима для автоматического подсчета [maxLines].
      * @property isVisibleWhenBlank мод скрытия разметки при пустом тексте, включая [padding].
-     * @property canContainUrl true, если строка может содержать url. Влияет на точность сокращения текста
      * и скорость создания [StaticLayout]. (Использовать только для [maxLines] > 1, когда текст может содержать ссылки).
      * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
-     * Если необходим только для ссылок, то лучше воспользоваться [canContainUrl].
      * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
      * @property needHighWidthAccuracy true, если необходимо включить мод высокой точности ширины текста.
      * Механика релевантна для однострочных разметок с сокращением текста, к размерам которых привязаны другие элементы.
@@ -911,14 +909,13 @@ class TextLayout private constructor(
         var minLines: Int = 0,
         var maxLength: Int = Int.MAX_VALUE,
         var isVisible: Boolean = true,
+        var isVisibleWhenBlank: Boolean = true,
         var padding: TextLayoutPadding = TextLayoutPadding(),
         var highlights: TextHighlights? = null,
         @Px var minWidth: Int = 0,
         @Px var minHeight: Int = 0,
         @Px var maxWidth: Int? = null,
         @Px var maxHeight: Int? = null,
-        var isVisibleWhenBlank: Boolean = true,
-        var canContainUrl: Boolean = false,
         var breakStrategy: Int = 0,
         var hyphenationFrequency: Int = 0,
         var needHighWidthAccuracy: Boolean = false
