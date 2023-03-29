@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
+import android.text.BoringLayout
 import android.text.Layout
 import android.text.Layout.Alignment
 import android.text.Spannable
@@ -41,6 +42,7 @@ import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.*
 import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.StaticLayoutConfigurator
+import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
 import timber.log.Timber
 import java.lang.Integer.MAX_VALUE
 import kotlin.math.ceil
@@ -649,8 +651,17 @@ class TextLayout private constructor(
      * - [TextLayoutParams.maxLength]
      */
     @Px
-    fun measureWidth(): Int =
-        paddingStart + params.limitedWidth + paddingEnd
+    fun measureWidth(): Int {
+        isBoring = BoringLayout.isBoring(params.configuredText, params.paint)
+        val textWidth = if (isBoring?.width != null) {
+            isBoring!!.width
+        } else {
+            params.limitedWidth
+        }
+        return paddingStart + paddingEnd + textWidth
+    }
+
+    private var isBoring: BoringLayout.Metrics? = null
 
     /**
      * Копировать текстовую разметку c текущими [params].
@@ -917,24 +928,23 @@ class TextLayout private constructor(
      * Созданная разметка помещается в кэш [cachedLayout].
      */
     private fun updateStaticLayout(): Layout {
-        val configurator = StaticLayoutConfigurator(
-            params.configuredText,
-            params.paint,
-            width = params.textWidth,
-            alignment = params.alignment,
-            ellipsize = params.ellipsize,
-            includeFontPad = params.includeFontPad,
-            spacingAdd = params.spacingAdd,
-            spacingMulti = params.spacingMulti,
-            maxLines = params.maxLines,
-            maxHeight = params.textMaxHeight,
-            highlights = params.highlights,
-            canContainUrl = params.canContainUrl,
-            breakStrategy = params.breakStrategy,
-            hyphenationFrequency = params.hyphenationFrequency,
+        val layout = LayoutConfigurator.createLayout {
+            text = params.configuredText
+            paint = params.paint
+            width = params.textWidth
+            alignment = params.alignment
+            ellipsize = params.ellipsize
+            includeFontPad = params.includeFontPad
+            spacingAdd = params.spacingAdd
+            spacingMulti = params.spacingMulti
+            maxLines = params.maxLines
+            maxHeight = params.textMaxHeight
+            highlights = params.highlights
+            breakStrategy = params.breakStrategy
+            hyphenationFrequency = params.hyphenationFrequency
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-        )
-        val layout = configurator.configure()
+            boring = isBoring
+        }
         layout.also {
             isLayoutChanged = false
             cachedLayout = it
