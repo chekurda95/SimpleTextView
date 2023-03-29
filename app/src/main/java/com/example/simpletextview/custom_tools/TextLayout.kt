@@ -498,7 +498,7 @@ class TextLayout private constructor(
      * Прозрачность текста разметки.
      */
     @get:FloatRange(from = 0.0, to = 1.0)
-    var alpha: Float = 1f
+    var layoutAlpha: Float = 1f
         set(value) {
             field = value
             textPaint.alpha = (value * textColorAlpha).toInt()
@@ -696,7 +696,7 @@ class TextLayout private constructor(
 
             if (oldColor != params.paint.color) {
                 textColorAlpha = params.paint.alpha
-                params.paint.alpha = (textColorAlpha * alpha).toInt()
+                params.paint.alpha = (textColorAlpha * layoutAlpha).toInt()
             }
 
             val isTextSizeChanged =
