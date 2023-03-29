@@ -23,9 +23,6 @@ class BaselineProfileGenerator {
         startActivityAndWait()
         val button = device.findObject(By.text("SBIS"))
         button.click()
-        /*repeat(10) {
-            button.click()
-        }*/
         device.waitForIdle()
     }
 }

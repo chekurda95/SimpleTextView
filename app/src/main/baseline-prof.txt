@@ -600,7 +600,6 @@ HSPLandroidx/collection/ArraySet;->indexOf(Ljava/lang/Object;I)I
 HSPLandroidx/collection/ArraySet;->iterator()Ljava/util/Iterator;
 HSPLandroidx/collection/ArraySet;->removeAt(I)Ljava/lang/Object;
 HSPLandroidx/collection/ContainerHelpers;-><clinit>()V
-HSPLandroidx/collection/ContainerHelpers;->binarySearch([III)I
 HSPLandroidx/collection/LruCache;-><init>(I)V
 HSPLandroidx/collection/LruCache;->create(Ljava/lang/Object;)Ljava/lang/Object;
 HSPLandroidx/collection/LruCache;->get(Ljava/lang/Object;)Ljava/lang/Object;
@@ -1184,6 +1183,7 @@ HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->create(Landroid/content/Con
 HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->create(Landroid/content/Context;)Ljava/lang/Object;
 HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->dependencies()Ljava/util/List;
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$1;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner;)V
+HSPLandroidx/lifecycle/ProcessLifecycleOwner$1;->run()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$2;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner;)V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$3$1;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner$3;)V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$3$1;->onActivityPostResumed(Landroid/app/Activity;)V
@@ -1200,6 +1200,7 @@ HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityResumed()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityStarted()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityStopped()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->attach(Landroid/content/Context;)V
+HSPLandroidx/lifecycle/ProcessLifecycleOwner;->dispatchPauseIfNeeded()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->dispatchStopIfNeeded()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->get()Landroidx/lifecycle/LifecycleOwner;
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->init(Landroid/content/Context;)V
@@ -1401,7 +1402,7 @@ HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutB
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;->access$getBoringLayout$p(Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;)Landroid/text/BoringLayout;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;->buildLayout(Ljava/lang/CharSequence;ILjava/lang/Integer;ZLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParams;)Landroid/text/Layout;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;->getPrecomputedData()Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;
-HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;->setPrecomputedData(Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;)V
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;->updatePrecomputedData(Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;)V
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutDrawableStateHelper$$ExternalSyntheticLambda0;-><init>(Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutDrawableStateHelper;)V
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutDrawableStateHelper;-><init>()V
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutDrawableStateHelper;->getTextPaint()Landroid/text/TextPaint;
@@ -1469,6 +1470,7 @@ HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutSta
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState$width$2;->invoke()Ljava/lang/Integer;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState$width$2;->invoke()Ljava/lang/Object;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;-><init>(Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutFadingEdgeHelper;Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParams;Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutDrawParams;)V
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$checkPrecomputedData(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)V
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getFadingEdgeHelper$p(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutFadingEdgeHelper;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getHorizontalPadding(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getLayoutBuildHelper$p(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)Lcom/example/simpletextview/custom_tools/text_layout/core/helpers/TextLayoutBuildHelper;
@@ -1477,6 +1479,8 @@ HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutSta
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getText(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)Ljava/lang/CharSequence;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getTextWidth(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->access$getVerticalPadding(Lcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;)I
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->checkPrecomputedData()V
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->createPrecomputedData(Ljava/lang/Integer;)Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getBaseline()I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getDrawParams()Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutDrawParams;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getHeight()I
@@ -1487,7 +1491,6 @@ HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutSta
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getMinHeightByLines()I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getMinTextWidth()I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getParams()Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParams;
-HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getPrecomputedData(Ljava/lang/Integer;)Lcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getPrecomputedWidth(Ljava/lang/Integer;)I
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getText()Ljava/lang/CharSequence;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/TextLayoutState;->getTextWidth()I
@@ -1544,7 +1547,8 @@ HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayo
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParamsDiff;->isPaintAlphaChanged()Z
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParamsDiff;->isTextParamsChanged()Z
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutParamsDiff;->isVisibilityParamsChanged()Z
-HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;-><init>(ILandroid/text/BoringLayout$Metrics;Ljava/lang/Integer;Ljava/lang/Boolean;)V
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;-><init>(Ljava/lang/Integer;ILandroid/text/BoringLayout$Metrics;Ljava/lang/Integer;Ljava/lang/Boolean;)V
+HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;->getAvailableWidth()Ljava/lang/Integer;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;->getBoring()Landroid/text/BoringLayout$Metrics;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;->getHasTextSizeSpans()Ljava/lang/Boolean;
 HSPLcom/example/simpletextview/custom_tools/text_layout/core/state/data/TextLayoutPrecomputedData;->getLineLastSymbolIndex()Ljava/lang/Integer;
@@ -1600,14 +1604,16 @@ HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator$Para
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator$Params;->setWidth(Ljava/lang/Integer;)V
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;-><clinit>()V
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;-><init>()V
-HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->configure(Lcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator$Params;)Landroid/text/Layout;
-HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->configure(Lkotlin/jvm/functions/Function1;)Landroid/text/Layout;
+HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->createLayout(Lcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator$Params;)Landroid/text/Layout;
+HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->createLayout(Lkotlin/jvm/functions/Function1;)Landroid/text/Layout;
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->isNeedFade(Ljava/lang/CharSequence;Landroid/text/TextPaint;IZ)Z
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->prepareHasTextSizeSpans(Ljava/lang/CharSequence;Ljava/lang/Boolean;Ljava/lang/Integer;)Z
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->prepareMaxLines(Ljava/lang/CharSequence;Landroid/text/TextPaint;ILjava/lang/Integer;)I
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->prepareTextLength(Ljava/lang/CharSequence;IZLjava/lang/Integer;)I
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->prepareWidth(Ljava/lang/CharSequence;Landroid/text/TextPaint;Ljava/lang/Integer;Z)I
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;->tryHighlightEllipsize(Landroid/text/Layout;Ljava/lang/CharSequence;Lcom/example/simpletextview/custom_tools/utils/TextHighlights;)V
+HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator$hiddenStaticConstructor$2;-><clinit>()V
+HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator$hiddenStaticConstructor$2;-><init>()V
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator;-><clinit>()V
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator;-><init>()V
 HSPLcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator;->checkBoring(Landroid/text/BoringLayout$Metrics;IILandroid/text/TextUtils$TruncateAt;)Landroid/text/BoringLayout$Metrics;
@@ -2405,6 +2411,7 @@ Lcom/example/simpletextview/custom_tools/utils/TextHighlightKt;
 Lcom/example/simpletextview/custom_tools/utils/TextLayoutAutoTestsHelper;
 Lcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator$Params;
 Lcom/example/simpletextview/custom_tools/utils/layout/LayoutConfigurator;
+Lcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator$hiddenStaticConstructor$2;
 Lcom/example/simpletextview/custom_tools/utils/layout/LayoutCreator;
 Lcom/example/simpletextview/metrics/MetricsLayout$$ExternalSyntheticLambda0;
 Lcom/example/simpletextview/metrics/MetricsLayout;
