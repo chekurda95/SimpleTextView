@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.TypedArray
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.Build
@@ -28,9 +27,8 @@ import androidx.core.content.withStyledAttributes
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
 import com.example.simpletextview.R
-import com.example.simpletextview.custom_tools.text_layout.TextLayout
-import com.example.simpletextview.custom_tools.text_layout.contract.TextLayoutConfig
-import com.example.simpletextview.custom_tools.utils.HighlightSpan
+import com.example.simpletextview.custom_tools.TextLayout
+import com.example.simpletextview.custom_tools.TextLayoutConfig
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDirection
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
@@ -455,8 +453,10 @@ open class SbisTextView : View, SbisTextViewApi {
             getInternalSuggestedMinimumWidth(availableWidth)
         }
         val horizontalPadding = paddingStart + paddingEnd
-        textLayout.buildLayout { layoutWidth = width - horizontalPadding }
-        val height = measureDirection(heightMeasureSpec) { suggestedMinimumHeight }
+        textLayout.buildLayout(width - horizontalPadding)
+        val height = measureDirection(heightMeasureSpec) {
+            suggestedMinimumHeight
+        }
         setMeasuredDimension(width, height)
     }
 

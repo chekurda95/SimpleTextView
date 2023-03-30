@@ -833,10 +833,10 @@ class TextLayout private constructor(
      * Созданная разметка помещается в кэш [drawingLayout].
      */
     private fun createLayout(): Layout {
-        state.checkPrecomputedData()
+        val precomputedData = state.getLayoutPrecomputedData()
         return LayoutConfigurator.createLayout {
             text = state.configuredText
-            width = precomputedData?.precomputedTextWidth ?: state.textWidth
+            width = precomputedData.precomputedTextWidth
             paint = params.paint
             maxHeight = state.layoutMaxHeight
             alignment = params.alignment
@@ -849,8 +849,8 @@ class TextLayout private constructor(
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
             fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-            hasTextSizeSpans = precomputedData?.hasTextSizeSpans
-            lineLastSymbolIndex = precomputedData?.lineLastSymbolIndex
+            hasTextSizeSpans = precomputedData.hasTextSizeSpans
+            lineLastSymbolIndex = precomputedData.lineLastSymbolIndex
             boring = this@TextLayout.isBoring
             boringLayout = this@TextLayout.boringLayout
         }
@@ -1012,7 +1012,7 @@ class TextLayout private constructor(
                 ?: with(params) {
                     val textWidth = layoutWidth?.let { width ->
                         maxOf(width - horizontalPadding, 0)
-                    } ?: limitedTextWidth
+                    } ?: refreshPrecomputedData().precomputedTextWidth
                     _textWidth = textWidth
                     textWidth
                 }
@@ -1033,18 +1033,6 @@ class TextLayout private constructor(
                     val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
                     _minTextWidth = minTextWidth
                     minTextWidth
-                }
-        /**
-         * Ширина текста с учетом ограничений.
-         */
-        @get:Px
-        val limitedTextWidth: Int
-            get() = _limitedTextWidth
-                ?: with(params) {
-                    val resultData = createPrecomputedData()
-                    precomputedData = resultData
-                    _limitedTextWidth = resultData.precomputedTextWidth
-                    resultData.precomputedTextWidth
                 }
 
         /**
@@ -1140,40 +1128,31 @@ class TextLayout private constructor(
         @Px
         fun getPrecomputedWidth(availableWidth: Int? = null): Int {
             val currentPrecomputedData = precomputedData
-            val textWidth = when {
-                currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth -> {
+            val textWidth =
+                if (currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth) {
                     currentPrecomputedData.precomputedTextWidth
+                } else {
+                    refreshPrecomputedData(availableWidth).precomputedTextWidth
                 }
-                availableWidth == null -> {
-                    limitedTextWidth
-                }
-                else -> {
-                    val resultData = createPrecomputedData(availableWidth)
-                    precomputedData = resultData
-                    resultData.precomputedTextWidth
-                }
-            }
             return textWidth + horizontalPadding
         }
 
-        fun checkPrecomputedData() {
-            val checkedPrecomputedData = if (precomputedData == null) {
+        fun getLayoutPrecomputedData(): PrecomputedLayoutData {
+            var resultData = precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
+            if (resultData == null) {
                 val availableWidth = textWidth + paddingStart + paddingEnd
-                val newPrecomputedData = createPrecomputedData(availableWidth)
-                newPrecomputedData
-            } else {
-                precomputedData?.takeIf { it.precomputedTextWidth == textWidth }
+                resultData = refreshPrecomputedData(availableWidth)
             }
-            precomputedData = checkedPrecomputedData
+            return resultData
         }
 
-        private fun createPrecomputedData(availableWidth: Int? = null): PrecomputedLayoutData {
+        private fun refreshPrecomputedData(availableWidth: Int? = null): PrecomputedLayoutData {
             val text = configuredText
             val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
             val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
 
             val hasTextSizeSpans = text is Spannable
-                    && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
+                && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
 
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
@@ -1207,7 +1186,9 @@ class TextLayout private constructor(
                 precomputedTextWidth = precomputedTextWidth,
                 lineLastSymbolIndex = lineLastSymbolIndex,
                 hasTextSizeSpans = hasTextSizeSpans
-            )
+            ).also { data ->
+                precomputedData = data
+            }
         }
     }
 
