@@ -103,6 +103,12 @@ fun View.sp(@IntRange(from = 0) value: Int): Int =
 
 /**
  * Получить ширину текста для данного [TextPaint].
+ *
+ * @param text текст, для которого высчитывается ширина.
+ * @param start индекс символа, с которого начнется измерение. (включительно)
+ * @param end индекс символа, на котором закончится измерение. (не включительно, +1 к индексу символа)
+ * @param byLayout измерение по api [Layout]. Тяжелее, но позволяет получить реальную ширину для spannable текста
+ * со спанами размера.
  */
 @Px
 fun TextPaint.getTextWidth(
@@ -117,11 +123,32 @@ fun TextPaint.getTextWidth(
         measureText(text, start, end).toInt()
     }
 
-fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean = false): Pair<Int, Int> {
+/**
+ * Получить ширину текста и индекс последнего символа для данного [TextPaint] с ограничением в [maxWidth].
+ * Метод позволяет не производить лишних измерений текста, если он не влезает в ограничение [maxWidth].
+ *
+ * @param text текст, для которого высчитывается ширина.
+ * @param maxWidth максимально допустимое пространство для текста.
+ * @param byLayout измерение по api [Layout]. Тяжелее, но позволяет получить реальную ширину для spannable текста
+ * со спанами размера.
+ *
+ * @return пара - ширина текста, но не больше [maxWidth], и индекс последнего символа во время ручного измерения.
+ * Важно: индекс последнего символа может находиться за пределами [maxWidth], его необходимо использовать
+ * исключительно для построения статичной текстовой разметки для оптимизации измерений, чтобы не гонять
+ * layout по тексту за пределами видимости.
+ * Пример: текст на 200 символов, в layout максимум может отобразиться 50, передача индекса в 50
+ * при построении разметки почти в 3 раза ускоряет построение за счет исключения обработки лишнего текста.
+ */
+fun TextPaint.getTextWidth(
+    text: CharSequence,
+    maxWidth: Int,
+    byLayout: Boolean = false,
+    checkMultiLines: Boolean = true
+): Pair<Int, Int> {
     if (maxWidth <= 0) return 0 to 0
-    val length = text.length
-    return if (length > 20 && !byLayout) {
-        val step = 10
+    val (correctText, length) = text.correctTextAndLength(checkMultiLines)
+    return if (length > MANUAL_TEXT_MEASURE_LENGTH && !byLayout) {
+        val step = MANUAL_TEXT_MEASURE_SYMBOLS_STEP
         val steps = ceil(length / step.toFloat()).toInt()
         var sumWidth = 0f
         var startIndex = 0
@@ -129,7 +156,7 @@ fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean 
 
         for (i in 1..steps) {
             lastIndex = (i * step).coerceAtMost(length)
-            sumWidth += getTextWidth(text, startIndex, lastIndex, byLayout)
+            sumWidth += getTextWidth(correctText, startIndex, lastIndex)
             if (sumWidth >= maxWidth) {
                 return maxWidth to lastIndex
             } else {
@@ -139,9 +166,27 @@ fun TextPaint.getTextWidth(text: CharSequence, maxWidth: Int, byLayout: Boolean 
 
         sumWidth.toInt() to lastIndex
     } else {
-        val textWidth = this@getTextWidth.getTextWidth(text, byLayout = byLayout).coerceAtMost(maxWidth)
+        val textWidth = this@getTextWidth.getTextWidth(correctText, byLayout = byLayout).coerceAtMost(maxWidth)
         textWidth to length
     }
+}
+
+private fun CharSequence.correctTextAndLength(checkMultiLines: Boolean): Pair<CharSequence, Int> {
+    var longestLength = 0
+    var longestString: CharSequence = ""
+    if (checkMultiLines && this.contains("\n")) {
+        val strings = this.split("\n")
+        strings.forEach {
+            if (it.length > longestLength) {
+                longestLength = it.length
+                longestString = it
+            }
+        }
+    } else {
+        longestLength = this.length
+        longestString = this
+    }
+    return longestString to longestLength
 }
 
 /**
@@ -163,3 +208,6 @@ internal fun Float.mathRoundToInt(): Int =
         if (this >= 0) result
         else result * -1
     }
+
+private const val MANUAL_TEXT_MEASURE_LENGTH = 20
+private const val MANUAL_TEXT_MEASURE_SYMBOLS_STEP = 10

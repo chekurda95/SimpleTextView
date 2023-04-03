@@ -14,6 +14,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.MetricAffectingSpan
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
@@ -170,7 +171,7 @@ class TextLayout private constructor(
     /**
      * Вспомогательный класс для обработки событий касаний по текстовой разметке.
      */
-    private val touchHelper: TouchHelper by lazy { TouchHelper() }
+    private val touchHelper: TouchHelper by lazy(LazyThreadSafetyMode.NONE) { TouchHelper() }
 
     /**
      * Горизонтальный паддинг для обработки касаний (левый и правый).
@@ -188,7 +189,7 @@ class TextLayout private constructor(
      * Вспомогательный класс для управления рисуемыми состояниями текстовой разметки.
      * @see colorStateList
      */
-    private val drawableStateHelper: DrawableStateHelper by lazy { DrawableStateHelper() }
+    internal val drawableStateHelper: DrawableStateHelper by lazy(LazyThreadSafetyMode.NONE) { DrawableStateHelper() }
 
     /**
      * Вспомогательный класс для отладки текстовой разметки.
@@ -204,8 +205,13 @@ class TextLayout private constructor(
     private var drawingLayout: Layout? = null
 
     private var precomputedData: PrecomputedLayoutData? = null
-    private var isBoring: BoringLayout.Metrics? = null
+    private var lastPrecomputedData: PrecomputedLayoutData? = null
+    private var cachedBoring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
+
+    /**
+     * Прикешированное состояние для исключения повторных измерений при многократных обращениях.
+     */
     private val state = CachedState()
 
     /**
@@ -224,17 +230,17 @@ class TextLayout private constructor(
     private var textColorAlpha = textPaint.alpha
 
     /**
-     * Признак необходимости затенения каря текста, когда он не помещается в рзметку
+     * Признак необходимости затенения каря текста, когда он не помещается в рзметку.
      */
     private var isFadeEdgeVisible: Boolean = false
-    private val fadeMatrix by lazy { Matrix() }
-    private val fadePaint by lazy {
+    private val fadeMatrix by lazy(LazyThreadSafetyMode.NONE) { Matrix() }
+    private val fadePaint by lazy(LazyThreadSafetyMode.NONE) {
         Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
         }
     }
     private var fadeShader: Lazy<Shader>? = null
-    private fun createFadeShader(): Lazy<Shader> = lazy {
+    private fun createFadeShader(): Lazy<Shader> = lazy(LazyThreadSafetyMode.NONE) {
         LinearGradient(
             0f,
             0f,
@@ -252,6 +258,10 @@ class TextLayout private constructor(
      * Координаты границ [TextLayout], полученные в [TextLayout.layout].
      */
     private val rect = Rect()
+
+    /**
+     * Координаты границ текста [layout], формируются вместе с [rect].
+     */
     private val textRect = RectF()
 
     /**
@@ -268,17 +278,20 @@ class TextLayout private constructor(
 
     /**
      * Получить текстовую разметку.
-     * Имеет ленивую инициализацию.
+     * Имеет ленивую инициализацию в случае изменения параметров.
      */
     val layout: Layout
         get() {
-            val cachedLayout = drawingLayout
-            return if (!isLayoutChanged && cachedLayout != null) {
-                cachedLayout
+            val drawingLayout = drawingLayout
+            return if (!isLayoutChanged && drawingLayout != null) {
+                drawingLayout
             } else {
-                createLayout().also { layout ->
-                    if (layout is BoringLayout) boringLayout = layout
+                val precomputedData = state.getLayoutPrecomputedData()
+                createLayout(precomputedData).also { layout ->
                     isLayoutChanged = false
+                    lastPrecomputedData = precomputedData
+                    this.precomputedData = null
+                    if (layout is BoringLayout) boringLayout = layout
                     this.drawingLayout = layout
                     updateFadeEdgeVisibility()
                 }
@@ -832,11 +845,10 @@ class TextLayout private constructor(
      * Если ширина в [params] не задана, то будет использована ширина текста.
      * Созданная разметка помещается в кэш [drawingLayout].
      */
-    private fun createLayout(): Layout {
-        val precomputedData = state.getLayoutPrecomputedData()
-        return LayoutConfigurator.createLayout {
+    private fun createLayout(precomputedData: PrecomputedLayoutData): Layout =
+        LayoutConfigurator.createLayout {
             text = state.configuredText
-            width = precomputedData.precomputedTextWidth
+            width = state.textWidth
             paint = params.paint
             maxHeight = state.layoutMaxHeight
             alignment = params.alignment
@@ -848,13 +860,12 @@ class TextLayout private constructor(
             highlights = params.highlights
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
-            fadingEdge = requiresFadingEdge && fadeEdgeSize > 0
-            hasTextSizeSpans = precomputedData.hasTextSizeSpans
+            fadingEdgeSize = if (requiresFadingEdge && fadeEdgeSize > 0) fadeEdgeSize else 0
+            hasMetricAffectingSpan = precomputedData.hasMetricAffectingSpan
             lineLastSymbolIndex = precomputedData.lineLastSymbolIndex
-            boring = this@TextLayout.isBoring
+            boring = precomputedData.isBoring
             boringLayout = this@TextLayout.boringLayout
         }
-    }
 
     /**
      * Обновить признак затенения каря для слишком длинного текста [isFadeEdgeVisible].
@@ -885,14 +896,14 @@ class TextLayout private constructor(
      * @property minLines минимальное количество строк.
      * @property maxLength максимальное количество символов в строке.
      * @property isVisible состояние видимости разметки.
+     * @property isVisibleWhenBlank мод скрытия разметки при пустом тексте, включая [padding].
+     * и скорость создания [StaticLayout]. (Использовать только для [maxLines] > 1, когда текст может содержать ссылки).
      * @property padding внутренние отступы разметки.
      * @property highlights модель для выделения текста.
      * @property minWidth минимальная ширина разметки.
      * @property minHeight минимальная высота разметки.
      * @property maxWidth максимальная ширина разметки.
      * @property maxHeight максимальная высота разметки с учетом [padding]. Необходима для автоматического подсчета [maxLines].
-     * @property isVisibleWhenBlank мод скрытия разметки при пустом тексте, включая [padding].
-     * и скорость создания [StaticLayout]. (Использовать только для [maxLines] > 1, когда текст может содержать ссылки).
      * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
      * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
      * @property needHighWidthAccuracy true, если необходимо включить мод высокой точности ширины текста.
@@ -948,6 +959,11 @@ class TextLayout private constructor(
         @Px val bottom: Int = 0
     )
 
+    /**
+     * Вспомогатльная реализация для кэширования измерений в текущем состоянии [TextLayout].
+     * Не использовать lazy и пересоздание этого объекта, влияет на производительность, из-за чего
+     * не будет пользы в прикэшировании.
+     */
     private inner class CachedState {
 
         private var _configuredText: CharSequence? = null
@@ -1012,7 +1028,9 @@ class TextLayout private constructor(
                 ?: with(params) {
                     val textWidth = layoutWidth?.let { width ->
                         maxOf(width - horizontalPadding, 0)
-                    } ?: refreshPrecomputedData().precomputedTextWidth
+                    }
+                        ?: precomputedData?.precomputedTextWidth
+                        ?: refreshPrecomputedData().precomputedTextWidth
                     _textWidth = textWidth
                     textWidth
                 }
@@ -1127,13 +1145,12 @@ class TextLayout private constructor(
 
         @Px
         fun getPrecomputedWidth(availableWidth: Int? = null): Int {
-            val currentPrecomputedData = precomputedData
-            val textWidth =
-                if (currentPrecomputedData != null && currentPrecomputedData.availableWidth == availableWidth) {
-                    currentPrecomputedData.precomputedTextWidth
-                } else {
-                    refreshPrecomputedData(availableWidth).precomputedTextWidth
-                }
+            val lastPrecomputedData = lastPrecomputedData
+            val textWidth = when {
+                text.isEmpty() -> 0
+                !isLayoutChanged && lastPrecomputedData != null -> lastPrecomputedData.precomputedTextWidth
+                else -> refreshPrecomputedData(availableWidth).precomputedTextWidth
+            }
             return textWidth + horizontalPadding
         }
 
@@ -1151,32 +1168,32 @@ class TextLayout private constructor(
             val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
             val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
 
-            val hasTextSizeSpans = text is Spannable
-                && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty()
+            val hasMetricAffectingSpan = text is Spannable
+                    && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty()
 
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
 
-            if (text !is Spannable && text.length <= 40 &&
+            if (text !is Spannable && text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT &&
                 (params.maxLines == SINGLE_LINE || params.maxLines == Int.MAX_VALUE)) {
-                isBoring = BoringLayout.isBoring(text, params.paint, this@TextLayout.isBoring)
+                isBoring = BoringLayout.isBoring(text, params.paint, this@TextLayout.cachedBoring)
             }
             val precomputedTextWidth = when {
                 isBoring != null -> {
-                    this@TextLayout.isBoring = isBoring
+                    this@TextLayout.cachedBoring = isBoring
                     maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
                 }
                 availableWidth != null || params.maxWidth != null -> {
                     val (width, lastIndex) = params.paint.getTextWidth(
                         text = text,
                         maxWidth = limitedTextWidth,
-                        byLayout = hasTextSizeSpans
+                        byLayout = hasMetricAffectingSpan
                     )
                     lineLastSymbolIndex = lastIndex
                     maxOf(width, minTextWidth)
                 }
                 else -> {
-                    val width = params.paint.getTextWidth(text = text, byLayout = hasTextSizeSpans)
+                    val width = params.paint.getTextWidth(text = text, byLayout = hasMetricAffectingSpan)
                     maxOf(minOf(width, limitedTextWidth), minTextWidth)
                 }
             }
@@ -1185,7 +1202,8 @@ class TextLayout private constructor(
                 availableWidth = availableWidth,
                 precomputedTextWidth = precomputedTextWidth,
                 lineLastSymbolIndex = lineLastSymbolIndex,
-                hasTextSizeSpans = hasTextSizeSpans
+                hasMetricAffectingSpan = hasMetricAffectingSpan,
+                isBoring = isBoring
             ).also { data ->
                 precomputedData = data
             }
@@ -1352,7 +1370,7 @@ class TextLayout private constructor(
      * Вспомогательный класс для управления рисуемыми состояниями текстовой разметки.
      * @see colorStateList
      */
-    private inner class DrawableStateHelper {
+    internal inner class DrawableStateHelper {
 
         /**
          * Список текущих рисуемых состояний текстовой разметки.
@@ -1550,11 +1568,20 @@ class TextLayout private constructor(
         }
     }
 
+    /**
+     * Подготовленные данные для построения [Layout].
+     *
+     * @property availableWidth допустимая ширина, под которую производились вычисления.
+     * @property precomputedTextWidth посчитанная ширина текста для построения [Layout].
+     * @property lineLastSymbolIndex индекс последнего символа в строке.
+     * @property hasMetricAffectingSpan проверка наличия в тексте спанов влияющих на ширину строки.
+     */
     private class PrecomputedLayoutData(
         val availableWidth: Int?,
         val precomputedTextWidth: Int,
         val lineLastSymbolIndex: Int? = null,
-        val hasTextSizeSpans: Boolean? = null
+        val hasMetricAffectingSpan: Boolean? = null,
+        val isBoring: BoringLayout.Metrics? = null
     )
 }
 
@@ -1572,3 +1599,4 @@ private const val ONE_PX = 1
 private const val SINGLE_LINE = 1
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f
+private const val BORING_LAYOUT_TEXT_LENGTH_LIMIT = 40

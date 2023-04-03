@@ -6,7 +6,8 @@ import android.text.Spannable
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
-import android.text.style.AbsoluteSizeSpan
+import android.text.style.MetricAffectingSpan
+import android.widget.TextView
 import androidx.annotation.IntRange
 import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.utils.HighlightSpan
@@ -16,17 +17,66 @@ import com.example.simpletextview.custom_tools.utils.ellipsizeIndex
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.highlightText
 import com.example.simpletextview.custom_tools.utils.textHeight
+import org.apache.commons.lang3.StringUtils
 import kotlin.math.ceil
 
+/**
+ * Конфигуратор для создания текстовой разметки [Layout] на базе [StaticLayout] или [BoringLayout].
+ * @see createLayout
+ *
+ * Является модернизированной оберткой над [StaticLayout.Builder] и [BoringLayout.make] и служит для упрощения создания
+ * однострочной и многострочной текстовой разметки, скрывая алгоритмы подбора аргументов.
+ * Также имеет расширенные возможности, например:
+ * @see [Params.highlights]
+ * @see [Params.maxHeight]
+ * @see [Params.fadingEdgeSize]
+ *
+ * @author vv.chekurda
+ */
 object LayoutConfigurator {
 
+    /**
+     * Создать текстовую разметку.
+     *
+     * @param config конфигурация для создания [Layout].
+     */
     fun createLayout(config: Params.() -> Unit): Layout {
         val params = Params().apply(config)
         return createLayout(params)
     }
 
+    /**
+     * Параметры конфигурации для построения [Layout].
+     *
+     * @property text текст, который будет находиться в [StaticLayout].
+     * @property paint краска, которой будет рисоваться текст [text].
+     * @property boring метрики для создания [BoringLayout].
+     * Высчитывать и передавать для короткого текста не [Spannable] текста, чтобы получить прирост производительности.
+     * @property boringLayout ранее созданный [BoringLayout] для возможности модификации уже существующего объекта.
+     * Можно хранить на внешнем уровне после каждого [createLayout], если [Layout] это [BoringLayout],
+     * и использовать при повторном вызове для ускорения создания [BoringLayout].
+     * @property width ширина контейнера текста. По-умолчанию ширина текста [text].
+     * @property alignment мод выравнивания текста. По-умолчанию выравнивание по левому краю.
+     * @property ellipsize мод сокращения текста. По-умолчанию текст сокращается в конце.
+     * @property includeFontPad true, если необходимо учитывать отступы шрифта, аналог атрибута includeFontPadding.
+     * @property spacingAdd величина межстрочного интервала.
+     * @property spacingMulti множитель межстрочного интервала.
+     * @property maxLines максимально допустимое количество строк, аналогично механике [TextView.setMaxLines].
+     * Null - без ограничений.
+     * @property maxHeight максимально допустимая высота. Опционально необходима для ограничения
+     * количества строк высотой, а не значением.
+     * @property highlights модель для выделения текста, например для сценариев поиска.
+     * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
+     * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
+     * @property fadingEdgeSize построение разметки с учетом возможного размыливания вместо сокращения текста.
+     * @property lineLastSymbolIndex (опционально, для оптимизации) индекс последнего символа
+     * в строке из [TextPaint.getTextWidth].
+     * Используется для отсечения текста, который будет находиться за пределами видимости.
+     * @property hasMetricAffectingSpan (опционально, для оптимизации) признак того, что в тексте есть спаны,
+     * влияющие на ширину строки. В случае null при необходимости этот признак будет получен при построении.
+     */
     class Params internal constructor(
-        var text: CharSequence = "",
+        var text: CharSequence = StringUtils.EMPTY,
         var paint: TextPaint = SimpleTextPaint(),
         var boring: BoringLayout.Metrics? = null,
         var boringLayout: BoringLayout? = null,
@@ -41,9 +91,9 @@ object LayoutConfigurator {
         var highlights: TextHighlights? = null,
         var breakStrategy: Int = 0,
         var hyphenationFrequency: Int = 0,
-        var fadingEdge: Boolean = false,
+        var fadingEdgeSize: Int = 0,
         var lineLastSymbolIndex: Int? = null,
-        var hasTextSizeSpans: Boolean? = null
+        var hasMetricAffectingSpan: Boolean? = null
     )
 
     /**
@@ -51,9 +101,9 @@ object LayoutConfigurator {
      */
     private fun createLayout(params: Params): Layout {
         val text = params.text.highlightText(params.highlights)
-        val width = prepareWidth(text, params.paint, params.width, params.fadingEdge)
+        val width = prepareWidth(text, params.paint, params.width, params.fadingEdgeSize)
         val maxLines = prepareMaxLines(text, params.paint, params.maxLines, params.maxHeight)
-        val hasTextSizeSpans = prepareHasTextSizeSpans(text, params.hasTextSizeSpans, params.lineLastSymbolIndex)
+        val hasTextSizeSpans = prepareHasMetricsAffectingSpans(text, params.hasMetricAffectingSpan, params.lineLastSymbolIndex)
         val textLength = prepareTextLength(text, maxLines, hasTextSizeSpans, params.lineLastSymbolIndex)
 
         return LayoutCreator.createLayout(
@@ -83,14 +133,14 @@ object LayoutConfigurator {
         text: CharSequence,
         paint: TextPaint,
         width: Int?,
-        fadingEdge: Boolean
+        fadingEdgeSize: Int
     ): Int =
         if (width != null && width >= 0) {
             width
         } else {
             paint.getTextWidth(text, byLayout = text is Spannable)
         }.let { layoutWidth ->
-            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdge)) ADDITIONAL_FADING_EDGE_WIDTH else 0
+            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdgeSize > 0)) fadingEdgeSize else 0
             layoutWidth + additional
         }
 
@@ -111,19 +161,18 @@ object LayoutConfigurator {
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
 
-    private fun prepareHasTextSizeSpans(
+    private fun prepareHasMetricsAffectingSpans(
         text: CharSequence,
-        hasTextSizeSpans: Boolean?,
+        hasMetricAffectingSpan: Boolean?,
         lineLastSymbolIndex: Int?
-    ): Boolean {
-        return when {
-            hasTextSizeSpans != null -> hasTextSizeSpans
+    ): Boolean =
+        when {
+            hasMetricAffectingSpan != null -> hasMetricAffectingSpan
             lineLastSymbolIndex != null -> {
-                (text is Spannable && text.getSpans(0, text.length, AbsoluteSizeSpan::class.java).isNotEmpty())
+                (text is Spannable && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty())
             }
             else -> false
         }
-    }
 
     private fun prepareTextLength(
         text: CharSequence,
@@ -165,7 +214,6 @@ object LayoutConfigurator {
 
 private const val MAX_LINES_NO_LIMIT = Integer.MAX_VALUE
 private const val SINGLE_LINE = 1
-private const val ADDITIONAL_FADING_EDGE_WIDTH = 300
 private const val ONE_LINE_SYMBOLS_COUNT_RESERVE = 1.2f
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f

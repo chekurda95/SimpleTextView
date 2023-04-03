@@ -33,6 +33,7 @@ import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDir
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
+import com.example.simpletextview.metrics.Statistic
 import org.apache.commons.lang3.StringUtils
 
 open class SbisTextView : View, SbisTextViewApi {
@@ -449,6 +450,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val startTime = System.nanoTime()
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
             getInternalSuggestedMinimumWidth(availableWidth)
         }
@@ -458,6 +460,8 @@ open class SbisTextView : View, SbisTextViewApi {
             suggestedMinimumHeight
         }
         setMeasuredDimension(width, height)
+        val resultTime = (System.nanoTime() - startTime) / 1000
+        Statistic.addSbisMeasureTime(resultTime)
     }
 
     override fun getSuggestedMinimumWidth(): Int =
@@ -481,7 +485,10 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        val start = System.nanoTime()
         internalLayout()
+        val resultTime = (System.nanoTime() - start) / 1000
+        Statistic.addSbisLayoutTime(resultTime)
     }
 
     private fun internalLayout() {
