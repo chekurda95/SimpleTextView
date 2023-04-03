@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils
+import com.example.simpletextview.custom_tools.utils.SbisTextViewPrecompiler
 import com.example.simpletextview.custom_tools.utils.layout
 import com.example.simpletextview.metrics.Statistic
 

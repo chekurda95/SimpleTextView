@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <style name="SbisTextViewPrecompile">
+        <item name="android:textSize">20dp</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="SbisTextViewPrecompile.SingleLine">
+        <item name="android:text">Test text</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
+    <style name="SbisTextViewPrecompile.MultiLine">
+        <item name="android:text">Test text Test text Test text Test text \n Test text \n Test text Test text Test text Test text Test text</item>
+        <item name="android:maxLines">2</item>
+    </style>
+    
+</resources>
