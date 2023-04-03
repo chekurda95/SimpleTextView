@@ -18,6 +18,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.widget.TextView
 import androidx.annotation.*
 import androidx.annotation.IntRange
 import androidx.appcompat.view.ContextThemeWrapper
@@ -26,6 +27,7 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.withStyledAttributes
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
+import com.example.simpletextview.BuildConfig
 import com.example.simpletextview.R
 import com.example.simpletextview.custom_tools.TextLayout
 import com.example.simpletextview.custom_tools.TextLayoutConfig
@@ -35,7 +37,20 @@ import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import com.example.simpletextview.metrics.Statistic
 import org.apache.commons.lang3.StringUtils
+import org.json.JSONObject
 
+/**
+ * Компонент для отображения текста.
+ *
+ * Является оптимизированным аналогом [TextView] с сокращенным набором функционала [SbisTextViewApi]
+ * и атрибутов [R.styleable.SbisTextView].
+ * Компонент может расширяться, поэтому
+ * если Вам не хватает какого-то API для вашей интеграции - обратитесь к ответственному за компонент.
+ * Приветствуются предложения по переносу в компонент полезных или частоиспользуемых расширений для [TextView],
+ * а также заказы на реализацию нового API, которого не хватало в нативном компоненте из коробки.
+ *
+ * @author vv.chekurda
+ */
 open class SbisTextView : View, SbisTextViewApi {
 
     /**
@@ -78,8 +93,13 @@ open class SbisTextView : View, SbisTextViewApi {
         maxLines = DEFAULT_MAX_LINES
         minLines = DEFAULT_MIN_LINES
         ellipsize = null
+    }.apply {
+        makeClickable(this@SbisTextView)
     }
     private val layoutTouchRect = Rect()
+    private val descriptionProvider: DescriptionProvider =
+        if (BuildConfig.DEBUG) DebugDescriptionProvider()
+        else ReleaseDescriptionProvider()
 
     override var text: CharSequence?
         get() = textLayout.text
@@ -230,8 +250,6 @@ open class SbisTextView : View, SbisTextViewApi {
         get() = textLayout.layout
 
     init {
-        @Suppress("LeakingThis")
-        textLayout.makeClickable(this)
         @Suppress("LeakingThis")
         accessibilityDelegate = TextLayoutAutoTestsHelper(this, textLayout)
     }
@@ -597,15 +615,17 @@ open class SbisTextView : View, SbisTextViewApi {
                 if (minHeight != null) this.minHeight = minHeight
                 if (maxHeight != null) this.maxHeight = maxHeight
             }
-            textLayout.apply {
-                this.colorStateList = colorStateList
-                this.requiresFadingEdge = requiresFadingEdge
-                this.fadeEdgeSize = fadingEdgeLength
+            textLayout.also {
+                it.colorStateList = colorStateList
+                it.requiresFadingEdge = requiresFadingEdge
+                it.fadeEdgeSize = fadingEdgeLength
             }
-            this@SbisTextView.linkTextColors = linkColorStateList
-            this@SbisTextView.isEnabled = isEnabled
-            this@SbisTextView.gravity = gravity ?: Gravity.NO_GRAVITY
-            this@SbisTextView.allCaps = allCaps
+            this@SbisTextView.also {
+                it.linkTextColors = linkColorStateList
+                it.isEnabled = isEnabled
+                it.gravity = gravity ?: Gravity.NO_GRAVITY
+                it.allCaps = allCaps
+            }
         }
     }
 
@@ -667,6 +687,34 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun setVerticalFadingEdgeEnabled(verticalFadingEdgeEnabled: Boolean) = Unit
     override fun getVerticalFadingEdgeLength(): Int = 0
+
+    @SuppressLint("GetContentDescriptionOverride")
+    override fun getContentDescription(): CharSequence =
+        descriptionProvider.getContentDescription()
+
+    private inner class ReleaseDescriptionProvider : DescriptionProvider {
+        override fun getContentDescription(): CharSequence =
+            text ?: StringUtils.EMPTY
+    }
+
+    private inner class DebugDescriptionProvider : DescriptionProvider {
+        override fun getContentDescription(): CharSequence =
+            JSONObject().apply {
+                put(DESCRIPTION_TEXT_KEY, text)
+                put(DESCRIPTION_TEXT_SIZE_KEY, textSize)
+                put(DESCRIPTION_TEXT_COLOR_KEY, String.format(
+                    COLOR_HEX_STRING_FORMAT,
+                    paint.color and 0xFFFFFF
+                ).uppercase())
+                put(DESCRIPTION_ELLIPSIZE_KEY, ellipsize?.toString() ?: NONE_VALUE)
+                if (maxLines != DEFAULT_MAX_LINES) put(DESCRIPTION_MAX_LINES_KEY, maxLines)
+                if (minLines != DEFAULT_MIN_LINES) put(DESCRIPTION_MIN_LINES_KEY, minLines)
+            }.toString()
+    }
+}
+
+private interface DescriptionProvider {
+    fun getContentDescription(): CharSequence
 }
 
 private const val ELLIPSIZE_START = 1
@@ -679,3 +727,12 @@ private const val DEFAULT_MIN_LINES = 1
 private const val DEFAULT_MAX_LINES = Int.MAX_VALUE
 private const val FADING_EDGE_NONE = 0x00000000
 private const val FADING_EDGE_HORIZONTAL = 0x00001000
+
+private const val DESCRIPTION_TEXT_KEY = "text"
+private const val DESCRIPTION_TEXT_SIZE_KEY = "text_size"
+private const val DESCRIPTION_TEXT_COLOR_KEY = "text_color"
+private const val DESCRIPTION_MAX_LINES_KEY = "max_lines"
+private const val DESCRIPTION_MIN_LINES_KEY = "min_lines"
+private const val DESCRIPTION_ELLIPSIZE_KEY = "ellipsize"
+private const val NONE_VALUE = "none"
+private const val COLOR_HEX_STRING_FORMAT = "#%06x"

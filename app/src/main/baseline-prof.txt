@@ -390,7 +390,6 @@ HSPLandroidx/appcompat/widget/LinearLayoutCompat;-><init>(Landroid/content/Conte
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->getVirtualChildCount()I
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->layoutHorizontal(IIII)V
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->measureHorizontal(II)V
-HSPLandroidx/appcompat/widget/LinearLayoutCompat;->onInitializeAccessibilityEvent(Landroid/view/accessibility/AccessibilityEvent;)V
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->onInitializeAccessibilityNodeInfo(Landroid/view/accessibility/AccessibilityNodeInfo;)V
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->onLayout(ZIIII)V
 HSPLandroidx/appcompat/widget/LinearLayoutCompat;->onMeasure(II)V
@@ -1175,7 +1174,6 @@ HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->create(Landroid/content/Con
 HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->create(Landroid/content/Context;)Ljava/lang/Object;
 HSPLandroidx/lifecycle/ProcessLifecycleInitializer;->dependencies()Ljava/util/List;
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$1;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner;)V
-HSPLandroidx/lifecycle/ProcessLifecycleOwner$1;->run()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$2;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner;)V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$3$1;-><init>(Landroidx/lifecycle/ProcessLifecycleOwner$3;)V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner$3$1;->onActivityPostResumed(Landroid/app/Activity;)V
@@ -1192,7 +1190,6 @@ HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityResumed()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityStarted()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->activityStopped()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->attach(Landroid/content/Context;)V
-HSPLandroidx/lifecycle/ProcessLifecycleOwner;->dispatchPauseIfNeeded()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->dispatchStopIfNeeded()V
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->get()Landroidx/lifecycle/LifecycleOwner;
 HSPLandroidx/lifecycle/ProcessLifecycleOwner;->init(Landroid/content/Context;)V
@@ -2398,6 +2395,7 @@ Lkotlin/text/StringsKt__StringsJVMKt;
 Lkotlin/text/StringsKt__StringsKt;
 Lkotlin/text/StringsKt___StringsJvmKt;
 Lkotlin/text/StringsKt___StringsKt;
+PLandroidx/collection/ContainerHelpers;->binarySearch([III)I
 PLandroidx/concurrent/futures/AbstractResolvableFuture$AtomicHelper;-><init>()V
 PLandroidx/concurrent/futures/AbstractResolvableFuture$AtomicHelper;-><init>(Landroidx/concurrent/futures/AbstractResolvableFuture$1;)V
 PLandroidx/concurrent/futures/AbstractResolvableFuture$Listener;-><clinit>()V
