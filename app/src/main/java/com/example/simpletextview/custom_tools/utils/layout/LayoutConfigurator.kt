@@ -18,6 +18,7 @@ import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.highlightText
 import com.example.simpletextview.custom_tools.utils.textHeight
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.StringUtils.EMPTY
 import kotlin.math.ceil
 
 /**
@@ -76,7 +77,7 @@ object LayoutConfigurator {
      * влияющие на ширину строки. В случае null при необходимости этот признак будет получен при построении.
      */
     class Params internal constructor(
-        var text: CharSequence = StringUtils.EMPTY,
+        var text: CharSequence = EMPTY,
         var paint: TextPaint = SimpleTextPaint(),
         var boring: BoringLayout.Metrics? = null,
         var boringLayout: BoringLayout? = null,
@@ -97,7 +98,7 @@ object LayoutConfigurator {
     )
 
     /**
-     * Применить настройки [config] для создания [StaticLayout].
+     * Применить настройки [params] для создания [Layout].
      */
     private fun createLayout(params: Params): Layout {
         val text = params.text.highlightText(params.highlights)
@@ -155,7 +156,7 @@ object LayoutConfigurator {
     ): Int {
         val calculatedMaxLines = when {
             text.isBlank() -> SINGLE_LINE
-            maxHeight != null -> maxOf(maxHeight, 0) / paint.textHeight
+            maxHeight != null -> maxOf(maxHeight, 0) / getOneLineHeight(paint)
             else -> maxLines
         }
         return maxOf(calculatedMaxLines, SINGLE_LINE)
@@ -208,6 +209,16 @@ object LayoutConfigurator {
             )
             val spannableText = if (this is StaticLayout) text else this.text
             spannableText.highlightText(ellipsizeHighlight)
+        }
+    }
+
+    private fun getOneLineHeight(paint: TextPaint): Int {
+        val textHeight = paint.textHeight
+        return if (textHeight > 0 || paint.textSize == 0f) {
+            textHeight
+        } else {
+            // Test case
+            LayoutCreator.createLayout(text = "1", paint = paint, width = 0).height
         }
     }
 }

@@ -10,7 +10,16 @@ import android.text.TextPaint
 import android.text.TextUtils
 import java.lang.reflect.Constructor
 
-internal object LayoutCreator {
+/**
+ * Утилита для создания текстовой разметки [Layout] на базе [StaticLayout] или [BoringLayout].
+ * Является удобной оберткой над конструкторами/билдерами с дефолтными значениями.
+ *
+ * Не включает в себя никакого дополнительного функционала или оптимизаций.
+ * @see LayoutConfigurator
+ *
+ * @author vv.chekurda
+ */
+object LayoutCreator {
 
     private val hiddenStaticConstructor: Constructor<StaticLayout> by lazy(LazyThreadSafetyMode.NONE) {
         StaticLayout::class.java.getConstructor(
@@ -32,11 +41,27 @@ internal object LayoutCreator {
         }
     }
 
+    /**
+     * Создать текстовую разметку [Layout].
+     *
+     * @property text текст, который будет находиться в [StaticLayout].
+     * @property paint краска, которой будет рисоваться текст [text].
+     * @property width ширина контейнера текста. По-умолчанию ширина текста [text].
+     * @property alignment мод выравнивания текста. По-умолчанию выравнивание по левому краю.
+     * @property ellipsize мод сокращения текста. По-умолчанию текст сокращается в конце.
+     * @property includeFontPad true, если необходимо учитывать отступы шрифта, аналог атрибута includeFontPadding.
+     * @property spacingAdd величина межстрочного интервала.
+     * @property spacingMulti множитель межстрочного интервала.
+     * @property maxLines максимально допустимое количество строк, аналогично механике [TextView.setMaxLines].
+     * Null - без ограничений.
+     * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
+     * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
+     */
     fun createLayout(
         text: CharSequence,
         paint: TextPaint,
         width: Int,
-        alignment: Layout.Alignment,
+        alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
         textLength: Int = text.length,
         spacingMulti: Float = DEFAULT_SPACING_MULTI,
         spacingAdd: Float = DEFAULT_SPACING_ADD,
