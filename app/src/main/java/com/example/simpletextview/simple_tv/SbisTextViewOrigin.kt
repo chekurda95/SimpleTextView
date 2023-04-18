@@ -443,7 +443,7 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
     }
 
     override fun getSuggestedMinimumWidth(): Int =
-        (paddingStart + paddingEnd + textLayout.measureWidth())
+        (paddingStart + paddingEnd + textLayout.getPrecomputedWidth())
             .coerceAtLeast(super.getSuggestedMinimumWidth())
 
     override fun getSuggestedMinimumHeight(): Int =
