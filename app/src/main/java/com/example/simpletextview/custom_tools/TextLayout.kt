@@ -9,6 +9,7 @@ import android.text.BoringLayout
 import android.text.Layout
 import android.text.Layout.Alignment
 import android.text.Spannable
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
@@ -26,22 +27,22 @@ import androidx.annotation.FloatRange
 import androidx.annotation.IdRes
 import androidx.annotation.Px
 import androidx.annotation.StyleRes
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.res.ResourcesCompat.ID_NULL
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
-import org.apache.commons.lang3.StringUtils
-import com.example.simpletextview.custom_tools.TextLayout.*
-import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
 import com.example.simpletextview.custom_tools.styles.CanvasStylesProvider
 import com.example.simpletextview.custom_tools.styles.StyleParams.StyleKey
 import com.example.simpletextview.custom_tools.styles.StyleParams.TextStyle
 import com.example.simpletextview.custom_tools.styles.StyleParamsProvider
+import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
-import com.example.simpletextview.custom_tools.*
-import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
+import org.apache.commons.lang3.StringUtils
+import com.example.simpletextview.custom_tools.TextLayout.*
+import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
 import kotlin.math.roundToInt
 
 /**
@@ -202,6 +203,12 @@ class TextLayout private constructor(
      * Текущая текстовая разметка.
      * Лениво инициализируется при первом обращении к [TextLayout.layout].
      */
+    private var _layout: Layout? = null
+
+    /**
+     * Рисуемая текстовая разметка.
+     * Устанавливается при вызове [layout], когда определяются координаты текста и самого [TextLayout].
+     */
     private var drawingLayout: Layout? = null
 
     private var precomputedData: PrecomputedLayoutData? = null
@@ -213,6 +220,18 @@ class TextLayout private constructor(
      * Прикешированное состояние для исключения повторных измерений при многократных обращениях.
      */
     private val state = CachedState()
+
+    /**
+     * Получить снимок внутреннего состояния.
+     */
+    @VisibleForTesting
+    internal val stateSnapshot: StateSnapshot
+        get() = StateSnapshot(
+            params = params,
+            layout = _layout,
+            isLayoutChanged = isLayoutChanged,
+            textPos = textRect.left to textRect.top
+        )
 
     /**
      * Признак необходимости в построении layout при следующем обращении
@@ -282,9 +301,9 @@ class TextLayout private constructor(
      */
     val layout: Layout
         get() {
-            val drawingLayout = drawingLayout
-            return if (!isLayoutChanged && drawingLayout != null) {
-                drawingLayout
+            val lastLayout = _layout
+            return if (!isLayoutChanged && lastLayout != null) {
+                lastLayout
             } else {
                 val precomputedData = state.getLayoutPrecomputedData()
                 createLayout(precomputedData).also { layout ->
@@ -292,7 +311,7 @@ class TextLayout private constructor(
                     lastPrecomputedData = precomputedData
                     this.precomputedData = null
                     if (layout is BoringLayout) boringLayout = layout
-                    this.drawingLayout = layout
+                    _layout = layout
                     updateFadeEdgeVisibility()
                 }
             }
@@ -331,6 +350,36 @@ class TextLayout private constructor(
      */
     val lineCount: Int
         get() = layout.lineCount
+
+    /**
+     * Максимальная ширина разметки.
+     */
+    val maxWidth: Int?
+        get() = params.maxWidth
+
+    /**
+     * Минимальная ширина разметки.
+     */
+    val minWidth: Int
+        get() = params.minWidth
+
+    /**
+     * Максимальная высота разметки.
+     */
+    val maxHeight: Int?
+        get() = params.maxHeight
+
+    /**
+     * Минимальная высота разметки.
+     */
+    val minHeight: Int
+        get() = params.minHeight
+
+    /**
+     * Максимальное количество символов в строке.
+     */
+    val maxLength: Int
+        get() = params.maxLength
 
     /**
      * Левая позиция разметки, установленная в [TextLayout.layout].
@@ -415,13 +464,13 @@ class TextLayout private constructor(
      */
     @get:Px
     val baseline: Int
-        get() = paddingTop + (drawingLayout?.getLineBaseline(0) ?: 0)
+        get() = paddingTop + layout.getLineBaseline(0)
 
     /**
      * Прозрачность текста разметки.
      */
     @get:FloatRange(from = 0.0, to = 1.0)
-    var layoutAlpha: Float = 1f
+    var alpha: Float = 1f
         set(value) {
             field = value
             textPaint.alpha = (value * textColorAlpha).toInt()
@@ -551,16 +600,66 @@ class TextLayout private constructor(
      * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
     @Px
-    fun getDesiredWidth(text: CharSequence? = null): Int =
-        state.horizontalPadding + params.paint.getTextWidth(text ?: state.configuredText)
+    fun getDesiredWidth(text: CharSequence? = null): Int {
+        /*val resultText = text ?: params.text
+
+        val textWidth = if (resultText is Spanned) {
+            with(resultText) {
+                *//** Можно доработать для [RelativeSizeSpan] и когда текст состоит из спанов частично *//*
+                val sizeSpans = getSpans(0, length, AbsoluteSizeSpan::class.java)
+                if (sizeSpans.isEmpty()) {
+                    params.paint.getTextWidth(resultText)
+                } else {
+                    var spansWidth = 0
+                    sizeSpans.forEach {
+                        val start = getSpanStart(it)
+                        val end = getSpanEnd(it)
+                        val fontSpan = getSpans(start, end, CustomTypefaceSpan::class.java).firstOrNull()
+                        spansWidth += TextPaint(params.paint)
+                            .apply {
+                                textSize = it.size.toFloat()
+                                fontSpan?.let { typeface = fontSpan.mTypeface }
+                            }
+                            .getTextWidth(this, start, end)
+                    }
+                    spansWidth
+                }
+            }
+        } else {
+            params.paint.getTextWidth(resultText)
+        }*/
+        return 0 //state.horizontalPadding + textWidth
+    }
 
     /**
      * Получить ожидаемую высоту разметки для однострочного текста без создания [StaticLayout].
+     * Для [Spanned] возвращается максимальная высота по каждому [AbsoluteSizeSpan].
      */
     @Px
-    fun getDesiredHeight(): Int =
-        with(params.paint.fontMetrics) {
-            (bottom - top + leading).roundToInt() + state.verticalPadding
+    fun getDesiredHeight(): Int {
+        val text = params.text
+        val textHeight = if (text is Spanned) {
+            val spans = text.getSpans(0, text.length, AbsoluteSizeSpan::class.java)
+            if (spans.isEmpty()) {
+                getTextHeight()
+            } else {
+                var maxHeight = 0
+                spans.forEach { span ->
+                    val sizedTextPaint = TextPaint(textPaint).apply { textSize = span.size.toFloat() }
+                    val height = getTextHeight(sizedTextPaint)
+                    maxHeight = maxOf(maxHeight, height)
+                }
+                maxHeight
+            }
+        } else {
+            getTextHeight()
+        }
+        return state.verticalPadding + textHeight
+    }
+
+    private fun getTextHeight(paint: TextPaint = textPaint): Int =
+        paint.fontMetrics.let {
+            (it.bottom - it.top + it.leading).roundToInt()
         }
 
     @Px
@@ -584,22 +683,33 @@ class TextLayout private constructor(
      * кэш статичной разметки при этом будет обновлен по новым параметрам при следующем обращении.
      *
      * @param config настройка параметров текстовой разметки.
+     * @param checkDiffs true, если необходимо принудительно проверить наличие изменений,
+     * в ином случае проверки будут игнорироваться, если параметры уже находятся в измененном состоянии.
      * @return true, если параметры изменились.
      */
     fun configure(
+        checkDiffs: Boolean = false,
         config: TextLayoutConfig
     ): Boolean =
-        if (isLayoutChanged) {
+        if (checkDiffs && isLayoutChanged) {
             config.invoke(params)
             state.reset()
             true
         } else {
-            calculateDiff(config).also {isChanged ->
+            checkDiff(config).also { isChanged ->
                 if (isChanged) isLayoutChanged = true
             }
         }
 
-    private fun calculateDiff(config: TextLayoutConfig): Boolean {
+    /**
+     * Настроить разметку.
+     * @see configure
+     * Необходим для поддержки сценариев передачи TextLayoutConfig в качестве объекта, а не лямбды.
+     */
+    fun configure(config: TextLayoutConfig): Boolean =
+        configure(checkDiffs = false, config)
+
+    private fun checkDiff(config: TextLayoutConfig): Boolean {
         val oldTextSize = params.paint.textSize
         val oldLetterSpacing = params.paint.letterSpacing
         val oldTypeface = params.paint.typeface
@@ -610,7 +720,7 @@ class TextLayout private constructor(
 
         if (oldColor != params.paint.color) {
             textColorAlpha = params.paint.alpha
-            params.paint.alpha = (textColorAlpha * layoutAlpha).toInt()
+            params.paint.alpha = (textColorAlpha * alpha).toInt()
         }
 
         val isTextSizeChanged =
@@ -635,11 +745,18 @@ class TextLayout private constructor(
     ): Boolean {
         val isChanged = if (config != null) {
             configure(config)
-        } else false
+        } else {
+            isLayoutChanged
+        }
         if (isVisible) layout
         return isChanged
     }
 
+    /**
+     * Построить разметку с шириной [width].
+     * Метод является оптимизированным решением для явной попытки построения [layout] с шириной [width]
+     * без участия [configure].
+     */
     fun buildLayout(width: Int) {
         if (isLayoutChanged) {
             params.layoutWidth = width
@@ -672,9 +789,12 @@ class TextLayout private constructor(
      * Разместить разметку на координате ([left], [top]).
      * Координата является позицией левого верхнего угла [TextLayout]
      *
-     * Метод вызывает построение [StaticLayout], если ранее он еще не был создан,
+     * Метод вызывает построение [Layout], если ранее он еще не был создан,
      * или если [params] разметки были изменены путем вызова [configure],
      * в иных случаях лишнего построения не произойдет.
+     *
+     * Актуальный построенный [Layout] будет установлен в [drawingLayout],
+     * отрисовка которого происходит в [drawLayout].
      */
     fun layout(@Px left: Int, @Px top: Int) {
         rect.set(left, top, left + width, top + height)
@@ -684,6 +804,7 @@ class TextLayout private constructor(
             this.right - paddingEnd.toFloat(),
             this.bottom - paddingBottom.toFloat()
         )
+        drawingLayout = _layout
 
         touchHelper.updateTouchRect()
         inspectHelper?.updatePositions()
@@ -697,7 +818,7 @@ class TextLayout private constructor(
      */
     fun draw(canvas: Canvas) {
         drawingLayout?.let { layout ->
-            if (!isVisible || params.text.isEmpty()) return
+            if (!isVisible || layout.text.isEmpty()) return
 
             if (isFadeEdgeVisible) {
                 drawFade(canvas) { drawLayout(it, layout) }
@@ -725,7 +846,11 @@ class TextLayout private constructor(
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
-        canvas.withRotation(rotation, left + rect.width() / 2f, top + rect.height() / 2f) {
+        canvas.withRotation(
+            degrees = rotation,
+            pivotX = left + rect.width() / 2f,
+            pivotY = top + rect.height() / 2f
+        ) {
             inspectHelper?.draw(this)
             withClip(
                 left = textRect.left + translationX,
@@ -841,9 +966,7 @@ class TextLayout private constructor(
     }
 
     /**
-     * Обновить разметку по набору параметров [params].
-     * Если ширина в [params] не задана, то будет использована ширина текста.
-     * Созданная разметка помещается в кэш [drawingLayout].
+     * Обновить разметку по набору параметров [params] и [precomputedData].
      */
     private fun createLayout(precomputedData: PrecomputedLayoutData): Layout =
         LayoutConfigurator.createLayout {
@@ -1062,7 +1185,7 @@ class TextLayout private constructor(
                 _minHeightByLines!!
             } else {
                 val layoutHeight = when {
-                    params.minLines <= 0 || !isVisible -> 0
+                    params.maxLines <= 0 || !isVisible -> 0
                     params.maxLines <= layout.lineCount -> layout.getLineTop(params.maxLines)
                     params.minLines <= layout.lineCount -> layout.height
                     else -> {
@@ -1112,17 +1235,19 @@ class TextLayout private constructor(
         @get:Px
         val width: Int
             get() = _width
-                ?: if (params.layoutWidth != null) {
-                    params.layoutWidth!!
-                } else {
-                    val layoutWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
-                        layout.getLineWidth(0).roundToInt()
-                    } else {
-                        layout.width
+                ?: when {
+                    !isVisible -> 0
+                    params.layoutWidth != null -> params.layoutWidth!!
+                    else -> {
+                        val layoutWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
+                            layout.getLineWidth(0).roundToInt()
+                        } else {
+                            layout.width
+                        }
+                        (layoutWidth + horizontalPadding)
+                            .coerceAtMost(params.maxWidth ?: Int.MAX_VALUE)
+                            .coerceAtLeast(params.minWidth)
                     }
-                    (layoutWidth + horizontalPadding)
-                        .coerceAtMost(params.maxWidth ?: Int.MAX_VALUE)
-                        .coerceAtLeast(params.minWidth)
                 }.also { _width = it  }
 
         /**
@@ -1582,6 +1707,19 @@ class TextLayout private constructor(
         val lineLastSymbolIndex: Int? = null,
         val hasMetricAffectingSpan: Boolean? = null,
         val isBoring: BoringLayout.Metrics? = null
+    )
+
+    /**
+     * Модель снимка внутреннего состояния [TextLayout].
+     * @see TextLayout.params
+     * @see TextLayout._layout
+     * @see TextLayout.isLayoutChanged
+     */
+    internal class StateSnapshot(
+        val params: TextLayoutParams,
+        val layout: Layout?,
+        val isLayoutChanged: Boolean,
+        val textPos: Pair<Float, Float>
     )
 }
 
