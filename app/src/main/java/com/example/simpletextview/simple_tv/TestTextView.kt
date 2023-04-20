@@ -2,21 +2,13 @@ package com.example.simpletextview.simple_tv
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioRecord
-import android.media.MediaCodec
-import android.media.MediaRecorder
 import android.util.AttributeSet
 import android.util.Log
-import android.view.MotionEvent
-import android.view.View
-import android.widget.FrameLayout
-import android.widget.TextView
-import android.widget.Toast
 import androidx.annotation.AttrRes
 import androidx.annotation.StyleRes
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.res.ResourcesCompat
-import androidx.core.content.withStyledAttributes
+import com.example.simpletextview.metrics.Statistic
 
 @SuppressLint("AppCompatCustomView")
 class TestTextView @JvmOverloads constructor(
@@ -30,13 +22,13 @@ class TestTextView @JvmOverloads constructor(
         val startTime = System.nanoTime()
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "AppCompat onMeasure $resultTime")
+        Statistic.addCompatMeasureTime(resultTime)
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val startTime = System.nanoTime()
         super.onLayout(changed, left, top, right, bottom)
         val resultTime = (System.nanoTime() - startTime) / 1000
-        Log.e("TAGTAG", "AppCompat onLayout $resultTime")
+        Statistic.addCompatLayoutTime(resultTime)
     }
 }

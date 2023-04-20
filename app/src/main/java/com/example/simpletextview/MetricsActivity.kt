@@ -1,12 +1,18 @@
 package com.example.simpletextview
 
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.style.AbsoluteSizeSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.text.set
+import androidx.core.view.children
 import com.example.simpletextview.metrics.MetricsLayout
+import com.example.simpletextview.simple_tv.SbisTextView
 
 class MetricsActivity : AppCompatActivity() {
 
@@ -39,8 +45,40 @@ class MetricsActivity : AppCompatActivity() {
         val startInflateTime = System.nanoTime()
         val view = LayoutInflater.from(this).inflate(layoutId, container, false)
         val endInflateTime = System.nanoTime()
-        (view as MetricsLayout).inflateTime = (endInflateTime - startInflateTime) / 1000
+        val metricsLayout = (view as MetricsLayout)
+
+        metricsLayout.inflateTime = (endInflateTime - startInflateTime) / 1000
         container.addView(view, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+
+        val child = metricsLayout.children.first()
+        val textView = child as? TextView
+        val sbisView = child as? SbisTextView
+        originText = textView?.text ?: sbisView!!.text!!
+
+        /*textView?.text = getSpannableString()
+        sbisView?.text = getSpannableString()*/
+
+        var count = 0
+        findViewById<View>(R.id.metrics_button_additional).setOnClickListener {
+            metricsLayout.wasLogged = false
+            count += 1
+            val text = when (count % 3) {
+                0 -> originText
+                1 -> originText
+                else -> newText
+            }
+            textView?.text = text
+            sbisView?.text = text
+        }
+    }
+
+    private var originText: CharSequence = ""
+    private var newText: CharSequence = "ggdfgjdzfgjdfgjfjl sgj ljsdflgjdslfgj"
+
+    private fun getSpannableString(): CharSequence {
+        val builder = SpannableStringBuilder(originText)
+        builder[0, originText.length] = AbsoluteSizeSpan(60)
+        return builder
     }
 
     enum class Type {

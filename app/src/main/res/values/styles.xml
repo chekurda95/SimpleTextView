@@ -2,6 +2,7 @@
 <resources>
 
     <style name="SbisTextViewDefaultTheme">
+        <item name="android:text">Title test</item>
         <item name="android:textSize">20dp</item>
         <item name="android:textColor">@color/black</item>
     </style>
@@ -82,8 +83,7 @@
     </style>
 
     <style name="MetricsTitleStyle">
-        <item name="android:text">Title stringgggggggggggg</item>
-        <item name="android:text">Title stringgggggggggggg gdfgdf gdfg dfghjdf hgkjhdfjk ghdkfjgh kjdfhgk dhfgkjhdfjk ghdklfghkd fhgkjdhsk ghfsadkj hgkjdsfhg kdfshgjk sdhfgkj dshfkg;h sd;fkjh sdjfghsdkf;jh g;ksdjhg kj;sdfhg kjdsfhgkj hskfjg hsfdk;g hsdk;fhsdk;fgh k;sdjfhgk;s hgkhsdfkghdsfkghsdf;ghsdk;ghsdkfhgk;sdjfhgk;sf</item>
+        <item name="android:text">Title string</item>
         <item name="android:textSize">15dp</item>
         <item name="android:textColor">@color/black</item>
         <item name="android:paddingStart">10dp</item>
@@ -97,6 +97,18 @@
         <item name="android:visibility">visible</item>
         <item name="android:fadingEdge">horizontal</item>
     </style>
+
+    <style name="MetricsActivityTheme" parent="Theme.MaterialComponents.Light.DarkActionBar">
+        <item name="sbisTextViewTheme">@style/MetricsActivitySbisStyle</item>
+    </style>
+
+    <style name="MetricsActivitySbisStyle">
+        <item name="android:text">Title111</item>
+        <item name="android:textSize">20dp</item>
+        <item name="android:textColor">@color/design_default_color_error</item>
+    </style>
+
+    <!--<item name="android:text">Title stringgggggggggggg gdfgdf </item>-->
 
    <!-- <style name="MetricsTitleStyle">
         <item name="android:text">Title stringgggggggggggg gdfgdf gdfg dfghjdf hgkjhdfjk ghdkfjgh kjdfhgk dhfgkjhdfjk ghdklfghkd fhgkjdhgdfgdfgdfgjkdhfkghdfghdfkjsgfhgsdughydsfoigysidufgyiudsfyugiusdhfgiusdhfgiuhdsfighsdiufghisdufghisdfhgishfighsdfipghsdpighisdufghipsdfhgipsdfhgiuh isdfgh iufsdhi sdhfgi hsdgiu hsdfigu hsdigu hsdiufg hsidufghsiudfhgdiupg sk ghfsadkj hgkjdsfhg kdfshgjk sdhfgkj dshfkg;h sd;fkjh sdjfghsdkf;jh g;ksdjhg kj;sdfhg kjdsfhgkj hskfjg hsfdk;g hsdk;fhsdk;fgh k;sdjfhgk;s hgkhsdfkghdsfkghsdf;ghsdk;ghsdkfhgk;sdjfhgk;sf</item>

@@ -21,7 +21,14 @@ class MetricsLayout @JvmOverloads constructor(
     private var onLayoutTimeMcs = 0L
     private var measureCount = 0L
     private var layoutCount = 0L
-    private var wasLogged = false
+    var wasLogged = false
+        set(value) {
+            field = value
+            onMeasureTimeMcs = 0
+            measureCount = 0
+            onLayoutTimeMcs = 0
+            layoutCount = 0
+        }
 
     var inflateTime: Long = 0
 
