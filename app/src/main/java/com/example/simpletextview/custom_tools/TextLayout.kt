@@ -255,7 +255,18 @@ class TextLayout private constructor(
     private var textColorAlpha = textPaint.alpha
 
     /**
-     * Признак необходимости затенения каря текста, когда он не помещается в рзметку.
+     * Правило попытки использования затемнения сокращения [requiresFadingEdge] и [fadeEdgeSize].
+     * Затемнение, как и для TextView, может происходить только для [isSingleLine] и [ellipsize] == null параметров,
+     * c ограничение длины в виде layoutWidth.
+     */
+    private val fadingEdgeRule: Boolean
+        get() = requiresFadingEdge && fadeEdgeSize > 0 &&
+                params.layoutWidth != null &&
+                params.ellipsize == null &&
+                params.isSingleLine
+
+    /**
+     * Признак о необходимости отрисовки затеменения для текста, который полностью не вмещается в разметку.
      */
     private var isFadeEdgeVisible: Boolean = false
     private val fadeMatrix by lazy(LazyThreadSafetyMode.NONE) { Matrix() }
@@ -1013,7 +1024,7 @@ class TextLayout private constructor(
             highlights = params.highlights
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
-            fadingEdgeSize = if (requiresFadingEdge && fadeEdgeSize > 0) fadeEdgeSize else 0
+            fadingEdgeSize = if (fadingEdgeRule) fadeEdgeSize else 0
             hasMetricAffectingSpan = precomputedData.hasMetricAffectingSpan
             lineLastSymbolIndex = precomputedData.lineLastSymbolIndex
             boring = precomputedData.isBoring
@@ -1021,17 +1032,11 @@ class TextLayout private constructor(
         }
 
     /**
-     * Обновить признак затенения каря для слишком длинного текста [isFadeEdgeVisible].
+     * Обновить признак [isFadeEdgeVisible] о необходимости отрисовки затеменения для текста,
+     * который полностью не вмещается в разметку.
      */
     private fun updateFadeEdgeVisibility() {
-        isFadeEdgeVisible = requiresFadingEdge && fadeEdgeSize > 0
-                && (maxLines == 1 || isSingleLine)
-                && params.text != TextUtils.ellipsize(
-            text,
-            textPaint,
-            state.textWidth.toFloat(),
-            TruncateAt.END
-        )
+        isFadeEdgeVisible = fadingEdgeRule && state.textWidth < layout.width
     }
 
     /**
@@ -1340,8 +1345,8 @@ class TextLayout private constructor(
 
             if (params.isSingleLine ||
                 (text !is Spannable &&
-                        ((text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT && params.maxLines == SINGLE_LINE) ||
-                                params.maxLines == Int.MAX_VALUE))
+                    ((text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT && params.maxLines == SINGLE_LINE) ||
+                        params.maxLines == Int.MAX_VALUE))
             ) {
                 isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
             }

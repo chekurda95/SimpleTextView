@@ -11,14 +11,12 @@ import android.widget.TextView
 import androidx.annotation.IntRange
 import androidx.annotation.Px
 import com.example.simpletextview.custom_tools.utils.HighlightSpan
-import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.ellipsizeIndex
 import com.example.simpletextview.custom_tools.utils.getTextWidth
+import com.example.simpletextview.custom_tools.utils.hasSymbolEllipsize
 import com.example.simpletextview.custom_tools.utils.highlightText
 import com.example.simpletextview.custom_tools.utils.textHeight
-import org.apache.commons.lang3.StringUtils
-import org.apache.commons.lang3.StringUtils.EMPTY
 import kotlin.math.ceil
 
 /**
@@ -104,7 +102,7 @@ object LayoutConfigurator {
      */
     private fun createLayout(text: CharSequence, paint: TextPaint, params: Params): Layout {
         val resultText = text.highlightText(params.highlights)
-        val width = prepareWidth(text, paint, params.width, params.fadingEdgeSize)
+        val width = prepareWidth(text, paint, params.width, params.fadingEdgeSize, params.ellipsize, params.isSingleLine)
         val maxLines = prepareMaxLines(text, paint, params.isSingleLine, params.maxLines, params.maxHeight)
         val hasMetricAffectingSpan = prepareHasMetricsAffectingSpans(text, params.hasMetricAffectingSpan, params.lineLastSymbolIndex)
         val textLength = prepareTextLength(text, maxLines, hasMetricAffectingSpan, params.lineLastSymbolIndex)
@@ -137,14 +135,20 @@ object LayoutConfigurator {
         text: CharSequence,
         paint: TextPaint,
         width: Int?,
-        fadingEdgeSize: Int
+        fadingEdgeSize: Int,
+        ellipsize: TextUtils.TruncateAt?,
+        isSingleLine: Boolean
     ): Int =
         when {
             width == null -> paint.getTextWidth(text, byLayout = text is Spannable)
             width >= 0 -> width
             else -> 0
         }.let { layoutWidth ->
-            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdgeSize > 0)) fadingEdgeSize else 0
+            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdgeSize, ellipsize, isSingleLine)) {
+                fadingEdgeSize
+            } else {
+                0
+            }
             layoutWidth + additional
         }
 
@@ -191,8 +195,17 @@ object LayoutConfigurator {
             text.length
         }
 
-    private fun isNeedFade(text: CharSequence, paint: TextPaint, width: Int, fadingEdge: Boolean): Boolean =
-        fadingEdge && text != TextUtils.ellipsize(text, paint, width.toFloat(), TextUtils.TruncateAt.END)
+    private fun isNeedFade(
+        text: CharSequence,
+        paint: TextPaint,
+        width: Int,
+        fadingEdgeSize: Int,
+        ellipsize: TextUtils.TruncateAt?,
+        isSingleLine: Boolean
+    ): Boolean =
+        isSingleLine && ellipsize == null &&
+            fadingEdgeSize > 0 &&
+            TextUtils.ellipsize(text, paint, width.toFloat(), TextUtils.TruncateAt.END).hasSymbolEllipsize
 
     /**
      * Подсветка сокращения текста при наличии [highlights] за пределами сокращения.
