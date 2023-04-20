@@ -349,11 +349,25 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
         }
     }
 
-    override fun measureText(): Float =
-        paint.measureText(text, 0, text?.length ?: 0)
+    override var maxWidth: Int?
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var minWidth: Int?
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var maxHeight: Int?
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var minHeight: Int?
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var maxLength: Int?
+        get() = TODO("Not yet implemented")
+        set(value) {}
 
-    override fun measureText(text: CharSequence): Float =
-        paint.measureText(text, 0, text.length)
+    override fun measureText(text: CharSequence?): Float {
+        TODO("Not yet implemented")
+    }
 
     override fun getEllipsisCount(line: Int): Int =
         textLayout.getEllipsisCount(line)
