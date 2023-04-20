@@ -54,6 +54,9 @@ object LayoutCreator {
      * @property spacingMulti множитель межстрочного интервала.
      * @property maxLines максимально допустимое количество строк, аналогично механике [TextView.setMaxLines].
      * Null - без ограничений.
+     * @property isSingleLine true, если при использовании [boring] необходимо создать именно [BoringLayout].
+     * Логика кажется странной, но у [TextView] на singleLine безусловно создается [BoringLayout],
+     * а с maxLines == 1 только в случае, когда ширина текста меньше [width].
      * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
      * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
      */
@@ -67,13 +70,14 @@ object LayoutCreator {
         spacingAdd: Float = DEFAULT_SPACING_ADD,
         includeFontPad: Boolean = false,
         maxLines: Int = SINGLE_LINE,
+        isSingleLine: Boolean = false,
         breakStrategy: Int = 0,
         hyphenationFrequency: Int = 0,
         ellipsize: TextUtils.TruncateAt? = null,
         boring: BoringLayout.Metrics? = null,
         boringLayout: BoringLayout? = null
     ): Layout {
-        val checkedBoring = checkBoring(boring, width, maxLines, ellipsize)
+        val checkedBoring = checkBoring(boring, width, maxLines, isSingleLine, ellipsize)
         return if (checkedBoring != null) {
             createBoringLayout(
                 boring = checkedBoring,
@@ -196,10 +200,11 @@ object LayoutCreator {
         boring: BoringLayout.Metrics?,
         width: Int,
         maxLines: Int,
+        isSingleLine: Boolean,
         ellipsize: TextUtils.TruncateAt?
     ): BoringLayout.Metrics? =
         boring?.takeIf {
-            ((ellipsize != null && maxLines == SINGLE_LINE) || boring.width <= width)
+            isSingleLine || boring.width <= width || (ellipsize != null && maxLines == SINGLE_LINE)
         }
 }
 

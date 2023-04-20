@@ -9,15 +9,19 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.Build
 import android.text.Layout
+import android.text.Layout.Alignment
 import android.text.Spannable
 import android.text.TextPaint
 import android.text.TextUtils
+import android.text.TextUtils.TruncateAt
 import android.text.method.TransformationMethod
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.SoundEffectConstants
 import android.view.View
+import android.view.accessibility.AccessibilityEvent
 import android.widget.TextView
 import androidx.annotation.*
 import androidx.annotation.IntRange
@@ -37,6 +41,7 @@ import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import com.example.simpletextview.metrics.Statistic
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.StringUtils.EMPTY
 import org.json.JSONObject
 
 /**
@@ -101,12 +106,15 @@ open class SbisTextView : View, SbisTextViewApi {
         if (BuildConfig.DEBUG) DebugDescriptionProvider()
         else ReleaseDescriptionProvider()
 
+    private var onClickListener: OnClickListener? = null
+    private var onLongClickListener: OnLongClickListener? = null
+
     override var text: CharSequence?
         get() = textLayout.text
         set(value) {
             configure {
                 val transformedText = transformationMethod?.getTransformation(value, this@SbisTextView)
-                text = transformedText ?: value ?: StringUtils.EMPTY
+                text = transformedText ?: value ?: EMPTY
             }
         }
 
@@ -145,12 +153,13 @@ open class SbisTextView : View, SbisTextViewApi {
         }
 
     override var isSingleLine: Boolean
-        get() = maxLines == SINGLE_LINE
+        get() = textLayout.isSingleLine
         set(value) {
             configure {
+                isSingleLine = value
                 maxLines = if (value) SINGLE_LINE else DEFAULT_MAX_LINES
                 minLines = DEFAULT_MIN_LINES
-                if (ellipsize == null) ellipsize = TextUtils.TruncateAt.END
+                if (ellipsize == null) ellipsize = TruncateAt.END
             }
         }
 
@@ -178,6 +187,36 @@ open class SbisTextView : View, SbisTextViewApi {
     override val lineCount: Int
         get() = layout.lineCount
 
+    override var maxWidth: Int?
+        get() = textLayout.maxWidth
+        set(value) {
+            configure { maxWidth = value }
+        }
+
+    override var minWidth: Int?
+        get() = textLayout.minWidth
+        set(value) {
+            configure { minWidth = value ?: 0 }
+        }
+
+    override var maxHeight: Int?
+        get() = textLayout.maxHeight
+        set(value) {
+            configure { maxHeight = value }
+        }
+
+    override var minHeight: Int?
+        get() = textLayout.minHeight
+        set(value) {
+            configure { minHeight = value ?: 0 }
+        }
+
+    override var maxLength: Int?
+        get() = textLayout.maxLength
+        set(value) {
+            configure { maxLength = value ?: Int.MAX_VALUE }
+        }
+
     override var gravity: Int = Gravity.NO_GRAVITY
         set(value) {
             if (field == value) return
@@ -197,7 +236,7 @@ open class SbisTextView : View, SbisTextViewApi {
             configure { paint.typeface = value }
         }
 
-    override var ellipsize: TextUtils.TruncateAt?
+    override var ellipsize: TruncateAt?
         get() = textLayout.ellipsize
         set(value) {
             configure { ellipsize = value }
@@ -260,7 +299,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun setTextWithHighlights(text: CharSequence?, highlights: TextHighlights?) {
         configure {
-            this.text = text ?: StringUtils.EMPTY
+            this.text = text ?: EMPTY
             this.highlights = highlights
         }
     }
@@ -291,6 +330,9 @@ open class SbisTextView : View, SbisTextViewApi {
 
         fun Int.index(): Int = attrs.indexOf(this)
 
+        var shouldLayout = false
+        var shouldInvalidate = false
+
         context.withStyledAttributes(attrs = attrs, resourceId = style) {
             val textSize = getDimension(R.styleable.SbisTextView_android_textSize.index(), 0f)
                 .takeIf { it != 0f }
@@ -305,9 +347,6 @@ open class SbisTextView : View, SbisTextViewApi {
             val textStyle = getInt(R.styleable.SbisTextView_android_textStyle.index(), NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
             val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps.index(), false)
-
-            var shouldLayout = false
-            var shouldInvalidate = false
 
             textLayout.configure {
                 if (textSize != null) {
@@ -334,11 +373,11 @@ open class SbisTextView : View, SbisTextViewApi {
             if (allCaps) {
                 this@SbisTextView.allCaps = true
             }
-            when {
-                isGone -> Unit
-                shouldLayout -> safeRequestLayout()
-                shouldInvalidate -> invalidate()
-            }
+        }
+        when {
+            isGone -> Unit
+            shouldLayout -> safeRequestLayout()
+            shouldInvalidate -> invalidate()
         }
     }
 
@@ -381,11 +420,10 @@ open class SbisTextView : View, SbisTextViewApi {
         }
     }
 
-    override fun measureText(): Float =
-        paint.measureText(text, 0, text?.length ?: 0)
-
-    override fun measureText(text: CharSequence): Float =
-        paint.measureText(text, 0, text.length)
+    override fun measureText(text: CharSequence?): Float {
+        val resultText = text ?: this.text ?: return 0f
+        return paint.measureText(resultText, 0, resultText.length)
+    }
 
     override fun getEllipsisCount(line: Int): Int =
         textLayout.getEllipsisCount(line)
@@ -395,29 +433,31 @@ open class SbisTextView : View, SbisTextViewApi {
         configure { alignment = getLayoutAlignment() }
     }
 
-    override fun isEnabled(): Boolean =
-        textLayout.isEnabled || super.isEnabled()
-
     override fun setEnabled(enabled: Boolean) {
         super.setEnabled(enabled)
         textLayout.isEnabled = enabled
     }
 
-    override fun setSelected(selected: Boolean) {
-        super.setSelected(selected)
+    override fun isEnabled(): Boolean =
+        textLayout.isEnabled || super.isEnabled()
+
+    override fun dispatchSetSelected(selected: Boolean) {
         textLayout.isSelected = selected
     }
 
     override fun isSelected(): Boolean =
         textLayout.isSelected || super.isSelected()
 
-    override fun isPressed(): Boolean =
-        textLayout.isPressed || super.isPressed()
-
     override fun setPressed(pressed: Boolean) {
-        super.setPressed(pressed)
+        super.setPressed(pressed && isClickable)
+    }
+
+    override fun dispatchSetPressed(pressed: Boolean) {
         textLayout.isPressed = pressed
     }
+
+    override fun isPressed(): Boolean =
+        textLayout.isPressed || super.isPressed()
 
     override fun isHorizontalFadingEdgeEnabled(): Boolean =
         textLayout.requiresFadingEdge
@@ -447,17 +487,38 @@ open class SbisTextView : View, SbisTextViewApi {
         getLayoutTop() + textLayout.baseline
 
     override fun setOnClickListener(listener: OnClickListener?) {
+        onClickListener = listener
         isClickable = listener != null
         textLayout.setOnClickListener(listener?.let {
-            TextLayout.OnClickListener { _, _ -> it.onClick(this) }
+            TextLayout.OnClickListener { _, _ -> performClick() }
         })
     }
 
     override fun setOnLongClickListener(listener: OnLongClickListener?) {
+        onLongClickListener = listener
         isLongClickable = listener != null
         textLayout.setOnLongClickListener(listener?.let {
-            TextLayout.OnLongClickListener { _, _ -> it.onLongClick(this) }
+            TextLayout.OnLongClickListener { _, _ -> performLongClick() }
         })
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun performClick(): Boolean {
+        val listener = onClickListener
+        val result = if (listener != null) {
+            playSoundEffect(SoundEffectConstants.CLICK)
+            listener.onClick(this)
+            true
+        } else {
+            false
+        }
+        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED)
+        return result
+    }
+
+    override fun performLongClick(): Boolean {
+        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)
+        return onLongClickListener?.onLongClick(this) ?: false
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -533,7 +594,7 @@ open class SbisTextView : View, SbisTextViewApi {
                     defStyleRes
                 )
             }
-            val text = getText(R.styleable.SbisTextView_android_text) ?: StringUtils.EMPTY
+            val text = getText(R.styleable.SbisTextView_android_text) ?: EMPTY
             val textSize = getDimensionPixelSize(R.styleable.SbisTextView_android_textSize, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
             val colorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColor)
@@ -557,10 +618,10 @@ open class SbisTextView : View, SbisTextViewApi {
                 .takeIf { it != NO_RESOURCE }
                 ?.let { ellipsize ->
                     when (ellipsize) {
-                        ELLIPSIZE_END -> TextUtils.TruncateAt.END
-                        ELLIPSIZE_START -> TextUtils.TruncateAt.START
-                        ELLIPSIZE_MIDDLE -> TextUtils.TruncateAt.MIDDLE
-                        ELLIPSIZE_MARQUEE -> TextUtils.TruncateAt.MARQUEE
+                        ELLIPSIZE_END -> TruncateAt.END
+                        ELLIPSIZE_START -> TruncateAt.START
+                        ELLIPSIZE_MIDDLE -> TruncateAt.MIDDLE
+                        ELLIPSIZE_MARQUEE -> TruncateAt.MARQUEE
                         else -> null
                     }
                 }
@@ -604,11 +665,12 @@ open class SbisTextView : View, SbisTextViewApi {
                     } ?: typeface
                 }
                 this.includeFontPad = includeFontPadding
-                this.ellipsize = if (singleLine && ellipsize != null) TextUtils.TruncateAt.END else ellipsize
+                this.ellipsize = if (singleLine && ellipsize != null) TruncateAt.END else ellipsize
                 this.breakStrategy = breakStrategy
                 this.hyphenationFrequency = hyphenationFrequency
                 this.maxLines = if (singleLine) SINGLE_LINE else lines ?: maxLines
                 this.minLines = if (singleLine) DEFAULT_MIN_LINES else lines ?: minLines
+                this.isSingleLine = singleLine
                 this.maxLength = maxLength
                 if (minWidth != null) this.minWidth = minWidth
                 if (maxWidth != null) this.maxWidth = maxWidth
@@ -651,22 +713,22 @@ open class SbisTextView : View, SbisTextViewApi {
         }
     }
 
-    private fun getLayoutAlignment(): Layout.Alignment =
+    private fun getLayoutAlignment(): Alignment =
         when (textAlignment) {
             TEXT_ALIGNMENT_GRAVITY -> {
                 when (gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK) {
-                    Gravity.CENTER_HORIZONTAL -> Layout.Alignment.ALIGN_CENTER
+                    Gravity.CENTER_HORIZONTAL -> Alignment.ALIGN_CENTER
                     Gravity.RIGHT,
-                    Gravity.END -> Layout.Alignment.ALIGN_OPPOSITE
-                    else -> Layout.Alignment.ALIGN_NORMAL
+                    Gravity.END -> Alignment.ALIGN_OPPOSITE
+                    else -> Alignment.ALIGN_NORMAL
                 }
             }
             TEXT_ALIGNMENT_TEXT_START,
-            TEXT_ALIGNMENT_VIEW_START -> Layout.Alignment.ALIGN_NORMAL
+            TEXT_ALIGNMENT_VIEW_START -> Alignment.ALIGN_NORMAL
             TEXT_ALIGNMENT_TEXT_END,
-            TEXT_ALIGNMENT_VIEW_END -> Layout.Alignment.ALIGN_OPPOSITE
-            TEXT_ALIGNMENT_CENTER -> Layout.Alignment.ALIGN_CENTER
-            else -> Layout.Alignment.ALIGN_NORMAL
+            TEXT_ALIGNMENT_VIEW_END -> Alignment.ALIGN_OPPOSITE
+            TEXT_ALIGNMENT_CENTER -> Alignment.ALIGN_CENTER
+            else -> Alignment.ALIGN_NORMAL
         }
 
     private fun getLayoutTop(): Int =
@@ -694,7 +756,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private inner class ReleaseDescriptionProvider : DescriptionProvider {
         override fun getContentDescription(): CharSequence =
-            text ?: StringUtils.EMPTY
+            text ?: EMPTY
     }
 
     private inner class DebugDescriptionProvider : DescriptionProvider {

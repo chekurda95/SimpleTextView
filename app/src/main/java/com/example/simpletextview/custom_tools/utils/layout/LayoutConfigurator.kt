@@ -39,24 +39,24 @@ object LayoutConfigurator {
     /**
      * Создать текстовую разметку.
      *
+     * @param text текст, который будет находиться в [StaticLayout].
+     * @param paint краска, которой будет рисоваться текст [text].
      * @param config конфигурация для создания [Layout].
      */
-    fun createLayout(config: Params.() -> Unit): Layout {
-        val params = Params().apply(config)
-        return createLayout(params)
+    fun createLayout(text: CharSequence, paint: TextPaint, config: (Params.() -> Unit)? = null): Layout {
+        val params = Params().apply { config?.invoke(this) }
+        return createLayout(text, paint, params)
     }
 
     /**
      * Параметры конфигурации для построения [Layout].
      *
-     * @property text текст, который будет находиться в [StaticLayout].
-     * @property paint краска, которой будет рисоваться текст [text].
      * @property boring метрики для создания [BoringLayout].
      * Высчитывать и передавать для короткого текста не [Spannable] текста, чтобы получить прирост производительности.
      * @property boringLayout ранее созданный [BoringLayout] для возможности модификации уже существующего объекта.
      * Можно хранить на внешнем уровне после каждого [createLayout], если [Layout] это [BoringLayout],
      * и использовать при повторном вызове для ускорения создания [BoringLayout].
-     * @property width ширина контейнера текста. По-умолчанию ширина текста [text].
+     * @property width ширина контейнера текста. По-умолчанию ширина текста.
      * @property alignment мод выравнивания текста. По-умолчанию выравнивание по левому краю.
      * @property ellipsize мод сокращения текста. По-умолчанию текст сокращается в конце.
      * @property includeFontPad true, если необходимо учитывать отступы шрифта, аналог атрибута includeFontPadding.
@@ -64,6 +64,9 @@ object LayoutConfigurator {
      * @property spacingMulti множитель межстрочного интервала.
      * @property maxLines максимально допустимое количество строк, аналогично механике [TextView.setMaxLines].
      * Null - без ограничений.
+     * @property isSingleLine true, если при использовании [boring] необходимо создать именно [BoringLayout].
+     * Логика кажется странной, но у [TextView] на singleLine безусловно создается [BoringLayout],
+     * а с maxLines == 1 только в случае, когда ширина текста меньше [width].
      * @property maxHeight максимально допустимая высота. Опционально необходима для ограничения
      * количества строк высотой, а не значением.
      * @property highlights модель для выделения текста, например для сценариев поиска.
@@ -77,8 +80,6 @@ object LayoutConfigurator {
      * влияющие на ширину строки. В случае null при необходимости этот признак будет получен при построении.
      */
     class Params internal constructor(
-        var text: CharSequence = EMPTY,
-        var paint: TextPaint = SimpleTextPaint(),
         var boring: BoringLayout.Metrics? = null,
         var boringLayout: BoringLayout? = null,
         @Px var width: Int? = null,
@@ -88,6 +89,7 @@ object LayoutConfigurator {
         var spacingAdd: Float = DEFAULT_SPACING_ADD,
         var spacingMulti: Float = DEFAULT_SPACING_MULTI,
         @IntRange(from = 1) var maxLines: Int = SINGLE_LINE,
+        var isSingleLine: Boolean = false,
         @Px var maxHeight: Int? = null,
         var highlights: TextHighlights? = null,
         var breakStrategy: Int = 0,
@@ -100,19 +102,20 @@ object LayoutConfigurator {
     /**
      * Применить настройки [params] для создания [Layout].
      */
-    private fun createLayout(params: Params): Layout {
-        val text = params.text.highlightText(params.highlights)
-        val width = prepareWidth(text, params.paint, params.width, params.fadingEdgeSize)
-        val maxLines = prepareMaxLines(text, params.paint, params.maxLines, params.maxHeight)
-        val hasTextSizeSpans = prepareHasMetricsAffectingSpans(text, params.hasMetricAffectingSpan, params.lineLastSymbolIndex)
-        val textLength = prepareTextLength(text, maxLines, hasTextSizeSpans, params.lineLastSymbolIndex)
+    private fun createLayout(text: CharSequence, paint: TextPaint, params: Params): Layout {
+        val resultText = text.highlightText(params.highlights)
+        val width = prepareWidth(text, paint, params.width, params.fadingEdgeSize)
+        val maxLines = prepareMaxLines(text, paint, params.isSingleLine, params.maxLines, params.maxHeight)
+        val hasMetricAffectingSpan = prepareHasMetricsAffectingSpans(text, params.hasMetricAffectingSpan, params.lineLastSymbolIndex)
+        val textLength = prepareTextLength(text, maxLines, hasMetricAffectingSpan, params.lineLastSymbolIndex)
 
         return LayoutCreator.createLayout(
-            text = text,
+            text = resultText,
             textLength = textLength,
             width = width,
             maxLines = maxLines,
-            paint = params.paint,
+            paint = paint,
+            isSingleLine = params.isSingleLine,
             alignment = params.alignment,
             spacingMulti = params.spacingMulti,
             spacingAdd = params.spacingAdd,
@@ -123,7 +126,7 @@ object LayoutConfigurator {
             boring = params.boring,
             boringLayout = params.boringLayout
         ).apply {
-            tryHighlightEllipsize(text, params.highlights)
+            tryHighlightEllipsize(resultText, params.highlights)
         }
     }
 
@@ -136,10 +139,10 @@ object LayoutConfigurator {
         width: Int?,
         fadingEdgeSize: Int
     ): Int =
-        if (width != null && width >= 0) {
-            width
-        } else {
-            paint.getTextWidth(text, byLayout = text is Spannable)
+        when {
+            width == null -> paint.getTextWidth(text, byLayout = text is Spannable)
+            width >= 0 -> width
+            else -> 0
         }.let { layoutWidth ->
             val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdgeSize > 0)) fadingEdgeSize else 0
             layoutWidth + additional
@@ -151,11 +154,12 @@ object LayoutConfigurator {
     private fun prepareMaxLines(
         text: CharSequence,
         paint: TextPaint,
+        isSingleLine: Boolean,
         maxLines: Int,
         maxHeight: Int?
     ): Int {
         val calculatedMaxLines = when {
-            text.isBlank() -> SINGLE_LINE
+            text.isBlank() || isSingleLine -> SINGLE_LINE
             maxHeight != null -> maxOf(maxHeight, 0) / getOneLineHeight(paint)
             else -> maxLines
         }
@@ -178,10 +182,10 @@ object LayoutConfigurator {
     private fun prepareTextLength(
         text: CharSequence,
         maxLines: Int,
-        hasTextSizeSpansByParams: Boolean,
+        hasMetricAffectingSpan: Boolean,
         lineLastSymbolIndex: Int?
     ): Int =
-        if (lineLastSymbolIndex != null && !hasTextSizeSpansByParams && maxLines != MAX_LINES_NO_LIMIT) {
+        if (lineLastSymbolIndex != null && !hasMetricAffectingSpan && maxLines != MAX_LINES_NO_LIMIT) {
             ceil(lineLastSymbolIndex * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
