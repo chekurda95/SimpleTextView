@@ -159,7 +159,6 @@ open class SbisTextView : View, SbisTextViewApi {
                 isSingleLine = value
                 maxLines = if (value) SINGLE_LINE else DEFAULT_MAX_LINES
                 minLines = DEFAULT_MIN_LINES
-                if (ellipsize == null) ellipsize = TruncateAt.END
             }
         }
 
