@@ -274,6 +274,8 @@ interface SbisTextViewApi {
      * @see Layout.getEllipsisCount
      */
     fun getEllipsisCount(line: Int): Int
+
+    fun ignore()
 }
 
 private const val DEFAULT_SPACING_ADD = 0f

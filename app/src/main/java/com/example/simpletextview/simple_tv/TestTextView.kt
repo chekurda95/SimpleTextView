@@ -18,10 +18,13 @@ class TestTextView @JvmOverloads constructor(
     @StyleRes defStyleRes: Int = ResourcesCompat.ID_NULL
 ) : AppCompatTextView(context, attrs, defStyleAttr) {
 
+    private var ignore: Boolean = false
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val startTime = System.nanoTime()
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val resultTime = (System.nanoTime() - startTime) / 1000
+        if (ignore) return
         Statistic.addCompatMeasureTime(resultTime)
     }
 
@@ -29,6 +32,11 @@ class TestTextView @JvmOverloads constructor(
         val startTime = System.nanoTime()
         super.onLayout(changed, left, top, right, bottom)
         val resultTime = (System.nanoTime() - startTime) / 1000
+        if (ignore) return
         Statistic.addCompatLayoutTime(resultTime)
+    }
+
+    fun ignore() {
+        ignore = true
     }
 }

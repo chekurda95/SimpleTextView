@@ -10,6 +10,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils
 import com.example.simpletextview.custom_tools.utils.SbisTextViewPrecompiler
 import com.example.simpletextview.custom_tools.utils.layout
+import com.example.simpletextview.metrics.MetricsLayoutCompat
+import com.example.simpletextview.metrics.MetricsLayoutSbis
 import com.example.simpletextview.metrics.Statistic
 
 class MetricsActivity2 : AppCompatActivity() {
@@ -22,12 +24,21 @@ class MetricsActivity2 : AppCompatActivity() {
         container = findViewById(R.id.metrics_example_container)
         Looper.getMainLooper().queue.addIdleHandler {
             repeat(10) {
-                val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_sbis_text_layout, container, false)
+                val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_sbis_text_layout, container, false) as MetricsLayoutSbis
+                view.ignore()
                 view.measure(MeasureSpecUtils.makeExactlySpec(100), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.measure(MeasureSpecUtils.makeAtMostSpec(50), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.layout(0, 0)
             }
-            true
+            repeat(10) {
+                val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_compat_text_layout, container, false) as MetricsLayoutCompat
+                view.ignore()
+                view.measure(MeasureSpecUtils.makeExactlySpec(100), MeasureSpecUtils.makeUnspecifiedSpec())
+                view.measure(MeasureSpecUtils.makeAtMostSpec(50), MeasureSpecUtils.makeUnspecifiedSpec())
+                view.layout(0, 0)
+            }
+            false
+            //!Statistic.cleared
         }
 
         findViewById<View>(R.id.metrics_button_app_compat).setOnClickListener {
@@ -35,6 +46,9 @@ class MetricsActivity2 : AppCompatActivity() {
         }
         findViewById<View>(R.id.metrics_button_sbis_text).setOnClickListener {
             addExample(Type.NEW_SBIS_TEXT)
+        }
+        findViewById<View>(R.id.metrics_button_clear).setOnClickListener {
+            Statistic.clear()
         }
         findViewById<View>(R.id.metrics_button_statistic).setOnClickListener {
             container.removeAllViews()

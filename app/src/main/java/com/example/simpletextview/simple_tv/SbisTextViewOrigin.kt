@@ -247,6 +247,10 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
         invalidate()
     }
 
+    override fun ignore() {
+        TODO("Not yet implemented")
+    }
+
     override fun setTextAppearance(context: Context, @StyleRes style: Int) {
         val attrs = intArrayOf(
             R.styleable.SbisTextView_android_textSize,

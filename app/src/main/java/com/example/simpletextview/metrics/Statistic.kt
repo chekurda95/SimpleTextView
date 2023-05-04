@@ -38,6 +38,8 @@ object Statistic {
     private var compatLayoutTime: Long = 0
     private var compatLayoutCount: Int = 0
 
+    var cleared: Boolean = false
+
     fun addSbisContainerInflateTime(time: Long) {
         sbisContainerInflateTime += time
         sbisContainerInflateCount += 1
@@ -148,4 +150,32 @@ object Statistic {
             .toString()
     }
 
+    fun clear() {
+        cleared = true
+        compatContainerInflateTime = 0
+        compatContainerMeasureTime = 0
+        compatContainerMeasureCount = 0
+        compatContainerLayoutTime = 0
+        compatContainerLayoutCount = 0
+        compatContainerInflateCount = 0
+        compatInflateTime = 0
+        compatInflateCount = 0
+        compatMeasureTime = 0
+        compatMeasureCount = 0
+        compatLayoutTime = 0
+        compatLayoutCount = 0
+        sbisContainerInflateTime = 0
+        sbisContainerInflateCount = 0
+        sbisContainerMeasureTime = 0
+        sbisContainerMeasureCount = 0
+        sbisContainerLayoutTime = 0
+        sbisContainerLayoutCount = 0
+        sbisContainerInflateCount = 0
+        sbisInflateTime = 0
+        sbisInflateCount = 0
+        sbisMeasureTime = 0
+        sbisMeasureCount = 0
+        sbisLayoutTime = 0
+        sbisLayoutCount = 0
+    }
 }
