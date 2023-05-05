@@ -1345,8 +1345,7 @@ class TextLayout private constructor(
 
             if (params.isSingleLine ||
                 (text !is Spannable &&
-                    ((text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT && params.maxLines == SINGLE_LINE) ||
-                        params.maxLines == Int.MAX_VALUE))
+                    (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
             ) {
                 isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
             }

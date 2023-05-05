@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils
-import com.example.simpletextview.custom_tools.utils.SbisTextViewPrecompiler
 import com.example.simpletextview.custom_tools.utils.layout
 import com.example.simpletextview.metrics.MetricsLayoutCompat
 import com.example.simpletextview.metrics.MetricsLayoutSbis
@@ -22,6 +21,7 @@ class MetricsActivity2 : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.metrics_activity_2)
         container = findViewById(R.id.metrics_example_container)
+        Statistic.toastCallback = {}
         Looper.getMainLooper().queue.addIdleHandler {
             repeat(10) {
                 val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_sbis_text_layout, container, false) as MetricsLayoutSbis
@@ -38,7 +38,6 @@ class MetricsActivity2 : AppCompatActivity() {
                 view.layout(0, 0)
             }
             false
-            //!Statistic.cleared
         }
 
         findViewById<View>(R.id.metrics_button_app_compat).setOnClickListener {

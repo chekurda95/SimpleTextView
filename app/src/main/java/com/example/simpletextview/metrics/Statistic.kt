@@ -1,6 +1,12 @@
 package com.example.simpletextview.metrics
 
+import android.annotation.SuppressLint
+import android.content.Context
+
+@SuppressLint("StaticFieldLeak")
 object Statistic {
+
+    lateinit var toastCallback: (Long) -> Unit
 
     private var sbisContainerInflateTime: Long = 0
     private var sbisContainerInflateCount: Int = 0
@@ -63,6 +69,7 @@ object Statistic {
     fun addSbisMeasureTime(time: Long) {
         sbisMeasureTime += time
         sbisMeasureCount += 1
+        toastCallback(time)
     }
 
     fun addSbisLayoutTime(time: Long) {
@@ -93,6 +100,7 @@ object Statistic {
     fun addCompatMeasureTime(time: Long) {
         compatMeasureTime += time
         compatMeasureCount += 1
+        toastCallback(time)
     }
 
     fun addCompatLayoutTime(time: Long) {
