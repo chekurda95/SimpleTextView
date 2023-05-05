@@ -25,14 +25,12 @@ class MetricsActivity2 : AppCompatActivity() {
         Looper.getMainLooper().queue.addIdleHandler {
             repeat(10) {
                 val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_sbis_text_layout, container, false) as MetricsLayoutSbis
-                view.ignore()
                 view.measure(MeasureSpecUtils.makeExactlySpec(100), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.measure(MeasureSpecUtils.makeAtMostSpec(50), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.layout(0, 0)
             }
             repeat(10) {
                 val view = LayoutInflater.from(this).inflate(R.layout.metrics_2_compat_text_layout, container, false) as MetricsLayoutCompat
-                view.ignore()
                 view.measure(MeasureSpecUtils.makeExactlySpec(100), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.measure(MeasureSpecUtils.makeAtMostSpec(50), MeasureSpecUtils.makeUnspecifiedSpec())
                 view.layout(0, 0)

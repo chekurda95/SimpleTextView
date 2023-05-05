@@ -15,8 +15,6 @@ class MetricsLayoutSbis @JvmOverloads constructor(
     defStyle: Int = 0
 ) : LinearLayout(context, attrs, defAttr, defStyle) {
 
-    private var ignore: Boolean = false
-
     private val childView: SbisTextView
 
     init {
@@ -34,7 +32,6 @@ class MetricsLayoutSbis @JvmOverloads constructor(
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
-        if (ignore) return
         Statistic.addSbisContainerMeasureTime(resultTime)
     }
 
@@ -43,12 +40,6 @@ class MetricsLayoutSbis @JvmOverloads constructor(
         super.onLayout(changed, l, t, r, b)
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
-        if (ignore) return
         Statistic.addSbisContainerLayoutTime(resultTime)
-    }
-
-    fun ignore() {
-        ignore = true
-        childView.ignore()
     }
 }

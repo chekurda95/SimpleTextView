@@ -15,14 +15,10 @@ class MetricsLayoutCompat @JvmOverloads constructor(
     defStyle: Int = 0
 ) : LinearLayout(context, attrs, defAttr, defStyle) {
 
-    private var ignore: Boolean = false
-    private val childView: TestTextView
-
     init {
         val inflater = LayoutInflater.from(context)
         val startTime = System.nanoTime()
         inflater.inflate(R.layout.metrics_app_compat_text_view, this, true)
-        childView = children.first() as TestTextView
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
         Statistic.addCompatInflateTime(resultTime)
@@ -33,7 +29,6 @@ class MetricsLayoutCompat @JvmOverloads constructor(
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
-        if (ignore) return
         Statistic.addCompatContainerMeasureTime(resultTime)
     }
 
@@ -42,12 +37,6 @@ class MetricsLayoutCompat @JvmOverloads constructor(
         super.onLayout(changed, l, t, r, b)
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
-        if (ignore) return
         Statistic.addCompatContainerLayoutTime(resultTime)
-    }
-
-    fun ignore() {
-        ignore = true
-        childView.ignore()
     }
 }

@@ -427,12 +427,6 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getEllipsisCount(line: Int): Int =
         textLayout.getEllipsisCount(line)
 
-    private var ignore: Boolean = false
-
-    override fun ignore() {
-        ignore = true
-    }
-
     override fun setTextAlignment(textAlignment: Int) {
         super.setTextAlignment(textAlignment)
         configure { alignment = getLayoutAlignment() }
@@ -545,7 +539,6 @@ open class SbisTextView : View, SbisTextViewApi {
         }
         setMeasuredDimension(width, height)
         val resultTime = (System.nanoTime() - startTime) / 1000
-        if (ignore) return
         Statistic.addSbisMeasureTime(resultTime)
     }
 
@@ -573,7 +566,6 @@ open class SbisTextView : View, SbisTextViewApi {
         val start = System.nanoTime()
         internalLayout()
         val resultTime = (System.nanoTime() - start) / 1000
-        if (ignore) return
         Statistic.addSbisLayoutTime(resultTime)
     }
 
