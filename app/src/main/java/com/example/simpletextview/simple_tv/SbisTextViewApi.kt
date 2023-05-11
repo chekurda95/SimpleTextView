@@ -153,7 +153,7 @@ interface SbisTextViewApi {
     var ellipsize: TextUtils.TruncateAt?
 
     /**
-     * Получить ширину сокращения текста.
+     * Получить ширину сокращенного текста.
      * @see Layout.getEllipsizedWidth
      */
     val ellipsizedWidth: Int
@@ -233,6 +233,12 @@ interface SbisTextViewApi {
      * Установить стиль текста.
      * @see TextView.setTextAppearance
      */
+    fun setTextAppearance(@StyleRes style: Int)
+
+    /**
+     * Установить стиль текста.
+     * @see TextView.setTextAppearance
+     */
     fun setTextAppearance(context: Context, @StyleRes style: Int)
 
     /**
@@ -249,18 +255,6 @@ interface SbisTextViewApi {
      * @see TextView.setTypeface
      */
     fun setTypeface(typeface: Typeface?, style: Int)
-
-    /**
-     * Установить ширину view в px.
-     * @see TextView.setWidth
-     */
-    fun setWidth(@Px width: Int?)
-
-    /**
-     * Установить высоту view в px.
-     * @see TextView.setHeight
-     */
-    fun setHeight(@Px height: Int?)
 
     /**
      * Измерить ширину текста [text] в px.

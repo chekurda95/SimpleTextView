@@ -9,6 +9,7 @@
         <attr name="android:textColor"/>
         <attr name="android:textAllCaps" format="boolean"/>
         <attr name="android:fontFamily" format="reference|string"/>
+        <attr name="android:textAppearance" format="reference"/>
         <attr name="android:includeFontPadding" format="boolean"/>
         <attr name="android:lines" format="integer" min="0"/>
         <attr name="android:maxLines" format="integer" min="0"/>
@@ -81,5 +82,4 @@
         android:maxTextSize -->
 
     </declare-styleable>
-
 </resources>

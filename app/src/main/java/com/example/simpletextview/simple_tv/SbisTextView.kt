@@ -3,6 +3,7 @@ package com.example.simpletextview.simple_tv
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.content.res.Resources
 import android.content.res.TypedArray
 import android.graphics.Canvas
 import android.graphics.Rect
@@ -12,16 +13,15 @@ import android.text.Layout
 import android.text.Layout.Alignment
 import android.text.Spannable
 import android.text.TextPaint
-import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
 import android.text.method.TransformationMethod
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.SoundEffectConstants
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.annotation.*
 import androidx.annotation.IntRange
@@ -37,10 +37,8 @@ import com.example.simpletextview.custom_tools.TextLayout
 import com.example.simpletextview.custom_tools.TextLayoutConfig
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDirection
 import com.example.simpletextview.custom_tools.utils.TextHighlights
-import com.example.simpletextview.custom_tools.utils.TextLayoutAutoTestsHelper
+import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
-import com.example.simpletextview.metrics.Statistic
-import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.StringUtils.EMPTY
 import org.json.JSONObject
 
@@ -76,9 +74,9 @@ open class SbisTextView : View, SbisTextViewApi {
      */
     constructor(
         context: Context,
-        config: TextLayoutConfig
+        config: SbisTextViewConfig?
     ) : super(context) {
-        textLayout.configure(config)
+        applyConfig(config)
     }
 
     /**
@@ -88,10 +86,10 @@ open class SbisTextView : View, SbisTextViewApi {
     constructor(
         context: Context,
         styleRes: Int,
-        config: TextLayoutConfig? = null
-    ) : super(ContextThemeWrapper(context, styleRes), null) {
+        config: SbisTextViewConfig? = null
+    ) : super(ContextThemeWrapper(context, styleRes)) {
         obtainAttrs()
-        config?.also(textLayout::configure)
+        applyConfig(config)
     }
 
     private val textLayout: TextLayout = TextLayout {
@@ -105,9 +103,6 @@ open class SbisTextView : View, SbisTextViewApi {
     private val descriptionProvider: DescriptionProvider =
         if (BuildConfig.DEBUG) DebugDescriptionProvider()
         else ReleaseDescriptionProvider()
-
-    private var onClickListener: OnClickListener? = null
-    private var onLongClickListener: OnLongClickListener? = null
 
     override var text: CharSequence?
         get() = textLayout.text
@@ -287,13 +282,46 @@ open class SbisTextView : View, SbisTextViewApi {
     override val layout: Layout
         get() = textLayout.layout
 
+    /**
+     * Установить ширину view в px.
+     * @see TextView.setWidth
+     */
+    @get:JvmName("getViewWidth")
+    var width: Int
+        get() = super.getWidth()
+        set(value) {
+            val width = value.takeIf { it >= 0 }
+            configure {
+                minWidth = width ?: 0
+                maxWidth = width
+            }
+        }
+
+    /**
+     * Установить высоту view в px.
+     * @see TextView.setHeight
+     */
+    @get:JvmName("getViewHeight")
+    var height: Int
+        get() = super.getHeight()
+        set(value) {
+            val height = value.takeIf { it >= 0 }
+            configure {
+                minHeight = height ?: 0
+                maxHeight = height
+            }
+        }
+
     init {
-        @Suppress("LeakingThis")
-        accessibilityDelegate = TextLayoutAutoTestsHelper(this, textLayout)
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
     }
 
     override fun setText(@StringRes stringRes: Int) {
-        text = resources.getString(stringRes)
+        text = if (stringRes != 0) {
+            resources.getString(stringRes)
+        } else {
+            EMPTY
+        }
     }
 
     override fun setTextWithHighlights(text: CharSequence?, highlights: TextHighlights?) {
@@ -317,14 +345,18 @@ open class SbisTextView : View, SbisTextViewApi {
         invalidate()
     }
 
+    override fun setTextAppearance(style: Int) {
+        setTextAppearance(context, style)
+    }
+
     override fun setTextAppearance(context: Context, @StyleRes style: Int) {
         val attrs = intArrayOf(
-            R.styleable.SbisTextView_android_textSize,
-            R.styleable.SbisTextView_android_textColor,
-            R.styleable.SbisTextView_android_textColorLink,
-            R.styleable.SbisTextView_android_textAllCaps,
-            R.styleable.SbisTextView_android_textStyle,
-            R.styleable.SbisTextView_android_fontFamily
+            android.R.attr.textSize,
+            android.R.attr.textColor,
+            android.R.attr.textColorLink,
+            android.R.attr.textAllCaps,
+            android.R.attr.textStyle,
+            android.R.attr.fontFamily
         )
 
         fun Int.index(): Int = attrs.indexOf(this)
@@ -333,33 +365,31 @@ open class SbisTextView : View, SbisTextViewApi {
         var shouldInvalidate = false
 
         context.withStyledAttributes(attrs = attrs, resourceId = style) {
-            val textSize = getDimension(R.styleable.SbisTextView_android_textSize.index(), 0f)
-                .takeIf { it != 0f }
-            val colorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColor.index())
+            val textSize = getDimensionPixelSize(android.R.attr.textSize.index(), 0)
+                .takeIf { it != 0 }
+            val colorStateList = getColorStateList(this, android.R.attr.textColor.index())
             val color = colorStateList?.defaultColor
-                ?: getColor(R.styleable.SbisTextView_android_textColor.index(), NO_RESOURCE)
+                ?: getColor(android.R.attr.textColor.index(), NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-            val linkColorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColorLink.index())
-            val typeface = getResourceId(R.styleable.SbisTextView_android_fontFamily.index(), NO_RESOURCE)
+            val linkColorStateList = getColorStateList(this, android.R.attr.textColorLink.index())
+            val fontFamily = getResourceId(android.R.attr.fontFamily.index(), NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-                ?.let { ResourcesCompat.getFont(context, it) }
-            val textStyle = getInt(R.styleable.SbisTextView_android_textStyle.index(), NO_RESOURCE)
+            val textStyle = getInt(android.R.attr.textStyle.index(), NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-            val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps.index(), false)
+            val typeface = getTypeface(fontFamily, textStyle)
+            val allCaps = getBoolean(android.R.attr.textAllCaps.index(), false)
 
             textLayout.configure {
                 if (textSize != null) {
-                    this.paint.textSize = textSize
+                    this.paint.textSize = textSize.toFloat()
                     shouldLayout = true
                 }
                 if (color != null) {
                     this.paint.color = color
                     shouldInvalidate = true
                 }
-                if (typeface != null || textStyle != null) {
-                    this.paint.typeface = textStyle?.let { style ->
-                        Typeface.create(typeface ?: this.paint.typeface, style)
-                    } ?: typeface
+                if (typeface != null) {
+                    this.paint.typeface = typeface
                     shouldLayout = true
                 }
             }
@@ -397,7 +427,7 @@ open class SbisTextView : View, SbisTextViewApi {
             val typefaceStyle = this.typeface?.style ?: 0
             val need = style and typefaceStyle.inv()
             paint.isFakeBoldText = need and Typeface.BOLD != 0
-            paint.textSkewX = (if (need and Typeface.ITALIC != 0) -0.25f else 0f)
+            paint.textSkewX = if (need and Typeface.ITALIC != 0) ITALIC_STYLE_PAINT_SKEW else 0f
         } else {
             paint.isFakeBoldText = false
             paint.textSkewX = 0f
@@ -405,23 +435,9 @@ open class SbisTextView : View, SbisTextViewApi {
         }
     }
 
-    override fun setWidth(@Px width: Int?) {
-        configure {
-            minWidth = width ?: 0
-            maxWidth = width
-        }
-    }
-
-    override fun setHeight(@Px height: Int?) {
-        configure {
-            minHeight = height ?: 0
-            maxHeight = height
-        }
-    }
-
     override fun measureText(text: CharSequence?): Float {
         val resultText = text ?: this.text ?: return 0f
-        return paint.measureText(resultText, 0, resultText.length)
+        return paint.getTextWidth(resultText, 0, resultText.length, byLayout = text is Spannable).toFloat()
     }
 
     override fun getEllipsisCount(line: Int): Int =
@@ -485,41 +501,6 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getBaseline(): Int =
         getLayoutTop() + textLayout.baseline
 
-    override fun setOnClickListener(listener: OnClickListener?) {
-        onClickListener = listener
-        isClickable = listener != null
-        textLayout.setOnClickListener(listener?.let {
-            TextLayout.OnClickListener { _, _ -> performClick() }
-        })
-    }
-
-    override fun setOnLongClickListener(listener: OnLongClickListener?) {
-        onLongClickListener = listener
-        isLongClickable = listener != null
-        textLayout.setOnLongClickListener(listener?.let {
-            TextLayout.OnLongClickListener { _, _ -> performLongClick() }
-        })
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun performClick(): Boolean {
-        val listener = onClickListener
-        val result = if (listener != null) {
-            playSoundEffect(SoundEffectConstants.CLICK)
-            listener.onClick(this)
-            true
-        } else {
-            false
-        }
-        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED)
-        return result
-    }
-
-    override fun performLongClick(): Boolean {
-        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)
-        return onLongClickListener?.onLongClick(this) ?: false
-    }
-
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val layoutTouch = if (isEnabled) textLayout.onTouch(this, event) else false
@@ -528,7 +509,6 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val startTime = System.nanoTime()
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
             getInternalSuggestedMinimumWidth(availableWidth)
         }
@@ -538,8 +518,6 @@ open class SbisTextView : View, SbisTextViewApi {
             suggestedMinimumHeight
         }
         setMeasuredDimension(width, height)
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Statistic.addSbisMeasureTime(resultTime)
     }
 
     override fun getSuggestedMinimumWidth(): Int =
@@ -563,10 +541,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        val start = System.nanoTime()
         internalLayout()
-        val resultTime = (System.nanoTime() - start) / 1000
-        Statistic.addSbisLayoutTime(resultTime)
     }
 
     private fun internalLayout() {
@@ -603,10 +578,12 @@ open class SbisTextView : View, SbisTextViewApi {
                 ?: getResourceId(R.styleable.SbisTextView_android_textColor, R.color.black)
                     .let { ContextCompat.getColor(context, it) }
             val linkColorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColorLink)
-            val typeface = getResourceId(R.styleable.SbisTextView_android_fontFamily, NO_RESOURCE)
+            val fontFamily = getResourceId(R.styleable.SbisTextView_android_fontFamily, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-                ?.let { ResourcesCompat.getFont(context, it) }
             val textStyle = getInt(R.styleable.SbisTextView_android_textStyle, NO_RESOURCE)
+                .takeIf { it != NO_RESOURCE }
+            val typeface = getTypeface(fontFamily, textStyle)
+            val textAppearance = getResourceId(R.styleable.SbisTextView_android_textAppearance, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
             val includeFontPadding = getBoolean(R.styleable.SbisTextView_android_includeFontPadding, true)
             val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps, false)
@@ -615,15 +592,16 @@ open class SbisTextView : View, SbisTextViewApi {
                 .takeIf { it != NO_RESOURCE }
             val ellipsize = getInt(R.styleable.SbisTextView_android_ellipsize, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-                ?.let { ellipsize ->
-                    when (ellipsize) {
-                        ELLIPSIZE_END -> TruncateAt.END
-                        ELLIPSIZE_START -> TruncateAt.START
-                        ELLIPSIZE_MIDDLE -> TruncateAt.MIDDLE
-                        ELLIPSIZE_MARQUEE -> TruncateAt.MARQUEE
-                        else -> null
-                    }
+            val truncateAt = ellipsize?.let {
+                when (ellipsize) {
+                    ELLIPSIZE_NONE -> null
+                    ELLIPSIZE_END -> TruncateAt.END
+                    ELLIPSIZE_START -> TruncateAt.START
+                    ELLIPSIZE_MIDDLE -> TruncateAt.MIDDLE
+                    ELLIPSIZE_MARQUEE -> TruncateAt.MARQUEE
+                    else -> null
                 }
+            }
             val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 0)
             val hyphenationFrequency = getInt(R.styleable.SbisTextView_android_hyphenationFrequency, 0)
             val isEnabled = getBoolean(R.styleable.SbisTextView_android_enabled, isEnabled)
@@ -654,17 +632,16 @@ open class SbisTextView : View, SbisTextViewApi {
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
 
+            textAppearance?.also(::setTextAppearance)
             textLayout.configure {
                 this.text = text
                 this.paint.also { paint ->
                     paint.textSize = textSize?.toFloat() ?: 0f
                     paint.color = color
-                    paint.typeface = textStyle?.let { style ->
-                        Typeface.create(typeface, style)
-                    } ?: typeface
+                    paint.typeface = typeface
                 }
                 this.includeFontPad = includeFontPadding
-                this.ellipsize = if (singleLine && ellipsize != null) TruncateAt.END else ellipsize
+                this.ellipsize = if (singleLine && ellipsize == null) TruncateAt.END else truncateAt
                 this.breakStrategy = breakStrategy
                 this.hyphenationFrequency = hyphenationFrequency
                 this.maxLines = if (singleLine) SINGLE_LINE else lines ?: maxLines
@@ -689,6 +666,23 @@ open class SbisTextView : View, SbisTextViewApi {
             }
         }
     }
+
+    private fun getTypeface(fontFamily: Int?, textStyle: Int?): Typeface? =
+        when {
+            fontFamily != null -> {
+                try {
+                    ResourcesCompat.getFont(context, fontFamily)
+                } catch (ex: Resources.NotFoundException) {
+                    // Expected if it is not a font resource.
+                    val familyName = resources.getString(fontFamily)
+                    Typeface.create(familyName, textStyle ?: Typeface.NORMAL)
+                }
+            }
+            textStyle != null -> {
+                Typeface.create(paint.typeface, textStyle)
+            }
+            else -> null
+        }
 
     private fun getColorStateList(
         typedArray: TypedArray,
@@ -746,8 +740,24 @@ open class SbisTextView : View, SbisTextViewApi {
             if (!isGone && isChanged) safeRequestLayout()
         }
 
+    private fun applyConfig(config: SbisTextViewConfig?) {
+        config?.invoke(this)
+    }
+
     override fun setVerticalFadingEdgeEnabled(verticalFadingEdgeEnabled: Boolean) = Unit
     override fun getVerticalFadingEdgeLength(): Int = 0
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.text = text
+    }
+
+    override fun onPopulateAccessibilityEvent(event: AccessibilityEvent) {
+        super.onPopulateAccessibilityEvent(event)
+        if (!text.isNullOrEmpty()) {
+            event.text.add(text)
+        }
+    }
 
     @SuppressLint("GetContentDescriptionOverride")
     override fun getContentDescription(): CharSequence =
@@ -763,10 +773,10 @@ open class SbisTextView : View, SbisTextViewApi {
             JSONObject().apply {
                 put(DESCRIPTION_TEXT_KEY, text)
                 put(DESCRIPTION_TEXT_SIZE_KEY, textSize)
-                put(DESCRIPTION_TEXT_COLOR_KEY, String.format(
-                    COLOR_HEX_STRING_FORMAT,
-                    paint.color and 0xFFFFFF
-                ).uppercase())
+                put(
+                    DESCRIPTION_TEXT_COLOR_KEY,
+                    String.format(COLOR_HEX_STRING_FORMAT, paint.color and 0xFFFFFF).uppercase()
+                )
                 put(DESCRIPTION_ELLIPSIZE_KEY, ellipsize?.toString() ?: NONE_VALUE)
                 if (maxLines != DEFAULT_MAX_LINES) put(DESCRIPTION_MAX_LINES_KEY, maxLines)
                 if (minLines != DEFAULT_MIN_LINES) put(DESCRIPTION_MIN_LINES_KEY, minLines)
@@ -778,6 +788,12 @@ private interface DescriptionProvider {
     fun getContentDescription(): CharSequence
 }
 
+/**
+ * Настройка параметров [SbisTextView].
+ */
+typealias SbisTextViewConfig = SbisTextView.() -> Unit
+
+private const val ELLIPSIZE_NONE = 0
 private const val ELLIPSIZE_START = 1
 private const val ELLIPSIZE_MIDDLE = 2
 private const val ELLIPSIZE_END = 3
@@ -788,6 +804,7 @@ private const val DEFAULT_MIN_LINES = 1
 private const val DEFAULT_MAX_LINES = Int.MAX_VALUE
 private const val FADING_EDGE_NONE = 0x00000000
 private const val FADING_EDGE_HORIZONTAL = 0x00001000
+private const val ITALIC_STYLE_PAINT_SKEW = -0.25f
 
 private const val DESCRIPTION_TEXT_KEY = "text"
 private const val DESCRIPTION_TEXT_SIZE_KEY = "text_size"
