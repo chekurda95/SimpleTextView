@@ -4,9 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.widget.LinearLayout
-import androidx.core.view.children
 import com.example.simpletextview.R
-import com.example.simpletextview.simple_tv.TestTextView
 
 class MetricsLayoutCompat @JvmOverloads constructor(
     context: Context,

@@ -26,6 +26,9 @@ object Statistic {
     private var sbisLayoutTime: Long = 0
     private var sbisLayoutCount: Int = 0
 
+    private var sbisObtainTextAppearanceTime: Long = 0
+    private var sbisObtainTextAppearanceCount: Int = 0
+
     private var compatContainerInflateTime: Long = 0
     private var compatContainerInflateCount: Int = 0
 
@@ -75,6 +78,11 @@ object Statistic {
     fun addSbisLayoutTime(time: Long) {
         sbisLayoutTime += time
         sbisLayoutCount += 1
+    }
+
+    fun addSbisObtainTextAppearence(time: Long) {
+        sbisObtainTextAppearanceTime += time
+        sbisObtainTextAppearanceCount += 1
     }
 
     fun addCompatContainerInflateTime(time: Long) {
@@ -129,6 +137,7 @@ object Statistic {
         val resultSbisInflateTime = sbisInflateTime / sbisInflateCount.coerceAtLeast(1)
         val resultSbisMeasureTime = sbisMeasureTime / sbisMeasureCount.coerceAtLeast(1)
         val resultSbisLayoutTime = sbisLayoutTime / sbisLayoutCount.coerceAtLeast(1)
+        val resultSbisObtainTime = sbisObtainTextAppearanceTime / sbisObtainTextAppearanceCount.coerceAtLeast(1)
         val resultSbisTime = resultSbisInflateTime + resultSbisMeasureTime + resultSbisLayoutTime
 
         return StringBuilder()
@@ -155,6 +164,7 @@ object Statistic {
             .appendLine("Inflate $resultSbisInflateTime")
             .appendLine("Measure $resultSbisMeasureTime")
             .appendLine("Layout $resultSbisLayoutTime")
+            .appendLine("Obtain TextAppearance $resultSbisObtainTime")
             .toString()
     }
 
