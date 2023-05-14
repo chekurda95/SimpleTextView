@@ -3,8 +3,6 @@ package com.example.simpletextview.simple_tv
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
-import android.content.res.Resources
-import android.content.res.TypedArray
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.Typeface
@@ -27,7 +25,6 @@ import androidx.annotation.*
 import androidx.annotation.IntRange
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.withStyledAttributes
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
@@ -351,58 +348,32 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun setTextAppearance(context: Context, @StyleRes style: Int) {
-        val attrs = intArrayOf(
-            android.R.attr.textSize,
-            android.R.attr.textColor,
-            android.R.attr.textColorLink,
-            android.R.attr.textAllCaps,
-            android.R.attr.textStyle,
-            android.R.attr.fontFamily
-        )
-
-        fun Int.index(): Int = attrs.indexOf(this)
-
+        val textAppearance = SbisTextViewObtainHelper.getTextAppearance(context, typeface, style)
         var shouldLayout = false
         var shouldInvalidate = false
 
-        context.withStyledAttributes(attrs = attrs, resourceId = style) {
-            val textSize = getDimensionPixelSize(android.R.attr.textSize.index(), 0)
-                .takeIf { it != 0 }
-            val colorStateList = getColorStateList(this, android.R.attr.textColor.index())
-            val color = colorStateList?.defaultColor
-                ?: getColor(android.R.attr.textColor.index(), NO_RESOURCE)
-                    .takeIf { it != NO_RESOURCE }
-            val linkColorStateList = getColorStateList(this, android.R.attr.textColorLink.index())
-            val fontFamily = getResourceId(android.R.attr.fontFamily.index(), NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val textStyle = getInt(android.R.attr.textStyle.index(), NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val typeface = getTypeface(fontFamily, textStyle)
-            val allCaps = getBoolean(android.R.attr.textAllCaps.index(), false)
-
-            textLayout.configure {
-                if (textSize != null) {
-                    this.paint.textSize = textSize.toFloat()
-                    shouldLayout = true
-                }
-                if (color != null) {
-                    this.paint.color = color
-                    shouldInvalidate = true
-                }
-                if (typeface != null) {
-                    this.paint.typeface = typeface
-                    shouldLayout = true
-                }
+        textLayout.configure {
+            if (textAppearance.textSize != null) {
+                this.paint.textSize = textAppearance.textSize
+                shouldLayout = true
             }
-            if (colorStateList != null) {
-                textLayout.colorStateList = colorStateList
+            if (textAppearance.color != null) {
+                this.paint.color = textAppearance.color
+                shouldInvalidate = true
             }
-            if (linkColorStateList != null) {
-                this@SbisTextView.linkTextColors = linkColorStateList
+            if (textAppearance.typeface != null) {
+                this.paint.typeface = textAppearance.typeface
+                shouldLayout = true
             }
-            if (allCaps) {
-                this@SbisTextView.allCaps = true
-            }
+        }
+        if (textAppearance.colorStateList != null) {
+            textLayout.colorStateList = textAppearance.colorStateList
+        }
+        if (textAppearance.linkColorStateList != null) {
+            this@SbisTextView.linkTextColors = textAppearance.linkColorStateList
+        }
+        if (textAppearance.allCaps == true) {
+            this@SbisTextView.allCaps = true
         }
         when {
             isGone -> Unit
@@ -575,23 +546,51 @@ open class SbisTextView : View, SbisTextViewApi {
                     defStyleRes
                 )
             }
+            val textAppearance = getResourceId(R.styleable.SbisTextView_android_textAppearance, NO_RESOURCE)
+                .takeIf { it != NO_RESOURCE }
+            val textAppearanceData = if (textAppearance != null) {
+                SbisTextViewObtainHelper.getTextAppearance(context, typeface, textAppearance)
+            } else {
+                null
+            }
             val text = getText(R.styleable.SbisTextView_android_text) ?: EMPTY
             val textSize = getDimensionPixelSize(R.styleable.SbisTextView_android_textSize, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-            val colorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColor)
+                ?: textAppearanceData?.textSize
+            val colorStateList = SbisTextViewObtainHelper.getColorStateList(
+                context,
+                this,
+                R.styleable.SbisTextView_android_textColor
+            ) ?: textAppearanceData?.colorStateList
             val color = colorStateList?.defaultColor
                 ?: getColor(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-                ?: getResourceId(R.styleable.SbisTextView_android_textColor, R.color.black)
-                    .let { ContextCompat.getColor(context, it) }
-            val linkColorStateList = getColorStateList(this, R.styleable.SbisTextView_android_textColorLink)
+                ?: getResourceId(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+                    ?.let { ContextCompat.getColor(context, it) }
+                ?: textAppearanceData?.color
+                ?: ContextCompat.getColor(context, R.color.black)
+            val linkColorStateList = SbisTextViewObtainHelper.getColorStateList(
+                context,
+                this,
+                R.styleable.SbisTextView_android_textColorLink
+            ) ?: textAppearanceData?.linkColorStateList
             val fontFamily = getResourceId(R.styleable.SbisTextView_android_fontFamily, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
             val textStyle = getInt(R.styleable.SbisTextView_android_textStyle, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
-            val typeface = getTypeface(fontFamily, textStyle)
-            val textAppearance = getResourceId(R.styleable.SbisTextView_android_textAppearance, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
+            val typeface =
+                if (fontFamily == null && textStyle == null) {
+                    textAppearanceData?.typeface ?: paint.typeface
+                } else {
+                    SbisTextViewObtainHelper.getTypeface(
+                        context,
+                        textAppearanceData?.typeface,
+                        fontFamily,
+                        textStyle
+                    )
+                }
+
             val includeFontPadding = getBoolean(R.styleable.SbisTextView_android_includeFontPadding, true)
             val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps, false)
 
@@ -639,7 +638,6 @@ open class SbisTextView : View, SbisTextViewApi {
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
 
-            textAppearance?.also(::setTextAppearance)
             textLayout.configure {
                 this.text = text
                 this.paint.also { paint ->
@@ -671,36 +669,6 @@ open class SbisTextView : View, SbisTextViewApi {
                 it.gravity = gravity ?: Gravity.NO_GRAVITY
                 it.allCaps = allCaps
             }
-        }
-    }
-
-    private fun getTypeface(fontFamily: Int?, textStyle: Int?): Typeface? =
-        when {
-            fontFamily != null -> {
-                try {
-                    ResourcesCompat.getFont(context, fontFamily)
-                } catch (ex: Resources.NotFoundException) {
-                    // Expected if it is not a font resource.
-                    val familyName = resources.getString(fontFamily)
-                    Typeface.create(familyName, textStyle ?: Typeface.NORMAL)
-                }
-            }
-            textStyle != null -> {
-                Typeface.create(paint.typeface, textStyle)
-            }
-            else -> null
-        }
-
-    private fun getColorStateList(
-        typedArray: TypedArray,
-        @StyleableRes attr: Int
-    ): ColorStateList? = with(typedArray) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            getColorStateList(attr)
-        } else {
-            getResourceId(attr, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-                ?.let { ContextCompat.getColorStateList(context, it) }
         }
     }
 

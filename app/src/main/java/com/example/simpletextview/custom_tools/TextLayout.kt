@@ -729,7 +729,7 @@ class TextLayout private constructor(
         checkDiffs: Boolean = false,
         config: TextLayoutConfig
     ): Boolean =
-        if (checkDiffs && isLayoutChanged) {
+        if (!checkDiffs && isLayoutChanged) {
             config.invoke(params)
             isLayoutChanged = true
             true
@@ -1343,7 +1343,7 @@ class TextLayout private constructor(
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
 
-            if (params.isSingleLine ||
+            if (params.isSingleLine || text.isEmpty() ||
                 (text !is Spannable &&
                     (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
             ) {
