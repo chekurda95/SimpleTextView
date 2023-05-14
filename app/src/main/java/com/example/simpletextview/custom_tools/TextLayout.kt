@@ -12,16 +12,17 @@ import android.text.Spannable
 import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
-import android.text.TextUtils
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.MetricAffectingSpan
+import android.text.style.TypefaceSpan
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
 import android.view.MotionEvent.*
 import android.view.View
 import android.view.ViewConfiguration.getPressedStateDuration
+import android.widget.TextView
 import androidx.annotation.AttrRes
 import androidx.annotation.FloatRange
 import androidx.annotation.IdRes
@@ -233,7 +234,29 @@ class TextLayout private constructor(
             layout = _layout,
             isLayoutChanged = isLayoutChanged,
             textPos = textRect.left to textRect.top,
-            refreshPrecomputedCount = refreshPrecomputedCount
+            refreshPrecomputedCount = refreshPrecomputedCount,
+            fadingEdgeRule = fadingEdgeRule,
+            isFadeEdgeVisible = isFadeEdgeVisible
+        )
+
+    /**
+     * Получить снимок внутреннего состояния.
+     */
+    @VisibleForTesting
+    internal val cachedStateSnapshot: CachedStateSnapshot
+        get() = CachedStateSnapshot(
+            resetCount = state.resetCount,
+            configuredTextCount = state.configuredTextCount,
+            horizontalPaddingCount = state.horizontalPaddingCount,
+            verticalPaddingCount = state.verticalPaddingCount,
+            textWidthCount = state.textWidthCount,
+            maxTextWidthCount = state.maxTextWidthCount,
+            minTextWidthCount = state.minTextWidthCount,
+            minHeightByLinesCount = state.minHeightByLinesCount,
+            layoutMaxHeightCount = state.layoutMaxHeightCount,
+            isVisibleCount = state.isVisibleCount,
+            widthCount = state.widthCount,
+            heightCount = state.heightCount
         )
 
     /**
@@ -538,12 +561,10 @@ class TextLayout private constructor(
      */
     var fadeEdgeSize: Int = 0
         set(value) {
-            val isChanged = field != value
-            field = value
-            if (isChanged) {
-                fadeShader = createFadeShader()
-                if (value > 0) configure { ellipsize = null }
-            }
+            val safeValue = value.coerceAtLeast(0)
+            val isChanged = field != safeValue
+            field = safeValue
+            if (isChanged) fadeShader = createFadeShader()
         }
 
     /**
@@ -641,8 +662,8 @@ class TextLayout private constructor(
         val resultText = text ?: params.text
 
         val textWidth = if (resultText is Spanned) {
-            /*with(resultText) {
-                *//** Можно доработать для [RelativeSizeSpan] и когда текст состоит из спанов частично *//*
+            with(resultText) {
+                /** Можно доработать для [RelativeSizeSpan] и когда текст состоит из спанов частично */
                 val sizeSpans = getSpans(0, length, AbsoluteSizeSpan::class.java)
                 if (sizeSpans.isEmpty()) {
                     params.paint.getTextWidth(resultText)
@@ -651,18 +672,17 @@ class TextLayout private constructor(
                     sizeSpans.forEach {
                         val start = getSpanStart(it)
                         val end = getSpanEnd(it)
-                        val fontSpan = getSpans(start, end, CustomTypefaceSpan::class.java).firstOrNull()
+                        val fontSpan = getSpans(start, end, TypefaceSpan::class.java).firstOrNull()
                         spansWidth += TextPaint(params.paint)
                             .apply {
                                 textSize = it.size.toFloat()
-                                fontSpan?.let { typeface = fontSpan.mTypeface }
+                                //fontSpan?.let { typeface = fontSpan.mTypeface }
                             }
                             .getTextWidth(this, start, end)
                     }
                     spansWidth
                 }
-            }*/
-            0
+            }
         } else {
             params.paint.getTextWidth(resultText)
         }
@@ -700,6 +720,17 @@ class TextLayout private constructor(
             (it.bottom - it.top + it.leading).roundToInt()
         }
 
+    /**
+     * Получить преподсчитанную ширину [TextLayout] с учетом всех текущих параметров [params]
+     * и свободного пространства [availableWidth], которое ограничивает возможную ширину [TextLayout]
+     * по верхней границе.
+     *
+     * Если [availableWidth] - null, то метод не накладывает дополнительных органичений
+     * на ширину [TextLayout] при вычислении.
+     *
+     * @return ширину [TextLayout] с учетом текущих [params] и максимального ограничения [availableWidth].
+     * Возвращаемое значение ключает в себя горизонтальыне отступы [TextLayout.horizontalPadding].
+     */
     @Px
     fun getPrecomputedWidth(availableWidth: Int? = null): Int =
         state.getPrecomputedWidth(availableWidth)
@@ -1143,6 +1174,22 @@ class TextLayout private constructor(
         private var _width: Int? = null
         private var _height: Int? = null
 
+        var resetCount: Int = 0
+        var configuredTextCount: Int = 0
+        var horizontalPaddingCount: Int = 0
+        var verticalPaddingCount: Int = 0
+        var textWidthCount: Int = 0
+        var maxTextWidthCount: Int = 0
+        var minTextWidthCount: Int = 0
+        var minHeightByLinesCount: Int = 0
+        var layoutMaxHeightCount: Int = 0
+        var isVisibleCount: Int = 0
+        var widthCount: Int = 0
+        var heightCount: Int = 0
+
+        /**
+         * Сбросить сохранненные вычисления.
+         */
         fun reset() {
             _configuredText = null
             _horizontalPadding = null
@@ -1156,6 +1203,7 @@ class TextLayout private constructor(
             _isVisible = null
             _width = null
             _height = null
+            resetCount += 1
         }
 
         /**
@@ -1168,20 +1216,35 @@ class TextLayout private constructor(
                     text.isEmpty() -> text
                     maxLength >= text.length -> text
                     else -> text.subSequence(0, maxLength)
-                }.also { _configuredText = it }
+                }.also {
+                    _configuredText = it
+                    configuredTextCount += 1
+                }
             }
 
+        /**
+         * Горизонтальные отступы.
+         * Сумма левого и правого отступа от границ [TextLayout] до [layout].
+         */
         val horizontalPadding: Int
             get() = _horizontalPadding
-                ?: (params.padding.start + params.padding.end).also {
-                    _horizontalPadding = it
-                }
+                ?: (params.padding.start + params.padding.end)
+                    .also {
+                        _horizontalPadding = it
+                        horizontalPaddingCount += 1
+                    }
 
+        /**
+         * Вертикальные отступы.
+         * Сумма верхнего и нижнего отступа от границ [TextLayout] до [layout].
+         */
         val verticalPadding: Int
             get() = _verticalPadding
-                ?: (params.padding.top + params.padding.bottom).also {
-                    _verticalPadding = it
-                }
+                ?: (params.padding.top + params.padding.bottom)
+                    .also {
+                        _verticalPadding = it
+                        verticalPaddingCount += 1
+                    }
 
         /**
          * Ширина текста.
@@ -1190,29 +1253,38 @@ class TextLayout private constructor(
         val textWidth: Int
             get() = _textWidth
                 ?: with(params) {
-                    val textWidth = layoutWidth?.let { width ->
+                    layoutWidth?.let { width ->
                         maxOf(width - horizontalPadding, 0)
                     } ?: getLayoutPrecomputedData().precomputedTextWidth
-                    _textWidth = textWidth
-                    textWidth
+                }.also {
+                    _textWidth = it
+                    textWidthCount += 1
                 }
 
+        /**
+         * Максимальная ширина текста.
+         */
         @get:Px
         val maxTextWidth: Int
             get() = _maxTextWidth
                 ?: with(params) {
-                    val maxTextWidth = maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: Integer.MAX_VALUE
-                    _maxTextWidth = maxTextWidth
-                    maxTextWidth
+                    maxWidth?.let { maxOf(it - horizontalPadding, 0) } ?: Integer.MAX_VALUE
+                }.also {
+                    _maxTextWidth = it
+                    maxTextWidthCount += 1
                 }
 
+        /**
+         * Минимальная ширина текста.
+         */
         @get:Px
         val minTextWidth: Int
             get() = _minTextWidth
                 ?: with(params) {
-                    val minTextWidth = if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
-                    _minTextWidth = minTextWidth
-                    minTextWidth
+                    if (minWidth > 0) maxOf(minWidth - horizontalPadding, 0) else 0
+                }.also {
+                    _minTextWidth = it
+                    minTextWidthCount += 1
                 }
 
         /**
@@ -1223,7 +1295,7 @@ class TextLayout private constructor(
             get() = if (_minHeightByLines != null) {
                 _minHeightByLines!!
             } else {
-                val layoutHeight = when {
+                when {
                     params.maxLines <= 0 || !isVisible -> 0
                     params.isSingleLine && layout.lineCount > 0 -> layout.getLineTop(1)
                     params.maxLines <= layout.lineCount -> layout.getLineTop(params.maxLines)
@@ -1234,10 +1306,10 @@ class TextLayout private constructor(
                         }
                         layout.height + (params.minLines - layout.lineCount) * lineHeight
                     }
-                }
-                val minHeightByLines = layoutHeight + verticalPadding
-                _minHeightByLines = minHeightByLines
-                minHeightByLines
+                } + verticalPadding
+            }.also {
+                _minHeightByLines = it
+                minHeightByLinesCount += 1
             }
 
         /**
@@ -1247,9 +1319,10 @@ class TextLayout private constructor(
         val layoutMaxHeight: Int?
             get() = _layoutMaxHeight
                 ?: with(params) {
-                    val layoutMaxHeight = maxHeight?.let { maxOf(it - verticalPadding, 0) }
-                    _layoutMaxHeight = layoutMaxHeight
-                    layoutMaxHeight
+                    maxHeight?.let { maxOf(it - verticalPadding, 0) }
+                }.also {
+                    _layoutMaxHeight = it
+                    layoutMaxHeightCount += 1
                 }
 
         /**
@@ -1262,7 +1335,10 @@ class TextLayout private constructor(
                         isVisible && text.isNotBlank()
                     } else {
                         isVisible
-                    }.also { _isVisible = it }
+                    }
+                }.also {
+                    _isVisible = it
+                    isVisibleCount += 1
                 }
 
         /**
@@ -1288,7 +1364,10 @@ class TextLayout private constructor(
                             .coerceAtMost(params.maxWidth ?: Int.MAX_VALUE)
                             .coerceAtLeast(params.minWidth)
                     }
-                }.also { _width = it  }
+                }.also {
+                    _width = it
+                    widthCount += 1
+                }
 
         /**
          * Высота всей разметки.
@@ -1306,8 +1385,22 @@ class TextLayout private constructor(
                         .coerceAtMost(params.maxHeight ?: Int.MAX_VALUE)
                 } else {
                     0
-                }.also { _height = it }
+                }.also {
+                    _height = it
+                    heightCount += 1
+                }
 
+        /**
+         * Получить преподсчитанную ширину [TextLayout] с учетом всех текущих параметров [params]
+         * и свободного пространства [availableWidth], которое ограничивает возможную ширину [TextLayout]
+         * по верхней границе.
+         *
+         * Если [availableWidth] - null, то метод не накладывает дополнительных органичений
+         * на ширину [TextLayout] при вычислении.
+         *
+         * @return ширину [TextLayout] с учетом текущих [params] и максимального ограничения [availableWidth].
+         * Возвращаемое значение ключает в себя горизонтальыне отступы [TextLayout.horizontalPadding].
+         */
         @Px
         fun getPrecomputedWidth(availableWidth: Int? = null): Int {
             val lastPrecomputedData = precomputedData
@@ -1321,6 +1414,13 @@ class TextLayout private constructor(
             return textWidth + horizontalPadding
         }
 
+        /**
+         * Получить подготовленные данные для построения [Layout].
+         *
+         * Метод проверяет консистентность текущих параметров с ранее вычисленными,
+         * если они совпадают - возвращает текущие данные [precomputedData],
+         * если нет - обновляет [refreshPrecomputedData] и возвращает новые данные.
+         */
         fun getLayoutPrecomputedData(): PrecomputedLayoutData =
             precomputedData?.takeIf {
                 val layoutWidth = params.layoutWidth
@@ -1764,13 +1864,35 @@ class TextLayout private constructor(
      * @see TextLayout.isLayoutChanged
      * @see TextLayout.textRect
      * @see TextLayout.refreshPrecomputedCount
+     * @see TextLayout.fadingEdgeRule
+     * @see TextLayout.isFadeEdgeVisible
      */
     internal class StateSnapshot(
         val params: TextLayoutParams,
         val layout: Layout?,
         val isLayoutChanged: Boolean,
         val textPos: Pair<Float, Float>,
-        val refreshPrecomputedCount: Int
+        val refreshPrecomputedCount: Int,
+        val fadingEdgeRule: Boolean,
+        val isFadeEdgeVisible: Boolean
+    )
+
+    /**
+     * Модель снимка внутреннего состояния [CachedState].
+     */
+    internal class CachedStateSnapshot(
+        val resetCount: Int,
+        val configuredTextCount: Int,
+        val horizontalPaddingCount: Int,
+        val verticalPaddingCount: Int,
+        val textWidthCount: Int,
+        val maxTextWidthCount: Int,
+        val minTextWidthCount: Int,
+        val minHeightByLinesCount: Int,
+        val layoutMaxHeightCount: Int,
+        val isVisibleCount: Int,
+        val widthCount: Int,
+        val heightCount: Int
     )
 }
 
