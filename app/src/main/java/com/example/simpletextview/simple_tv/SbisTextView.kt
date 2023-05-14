@@ -105,10 +105,11 @@ open class SbisTextView : View, SbisTextViewApi {
     override var text: CharSequence?
         get() = textLayout.text
         set(value) {
-            configure {
+            val isChanged = configure {
                 val transformedText = transformationMethod?.getTransformation(value, this@SbisTextView)
                 text = transformedText ?: value ?: EMPTY
             }
+            if (isChanged) restartForeground()
         }
 
     @get:Px
@@ -717,6 +718,12 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private fun applyConfig(config: SbisTextViewConfig?) {
         config?.invoke(this)
+    }
+
+    private fun restartForeground() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            foreground?.setVisible(false, true)
+        }
     }
 
     override fun setVerticalFadingEdgeEnabled(verticalFadingEdgeEnabled: Boolean) = Unit
