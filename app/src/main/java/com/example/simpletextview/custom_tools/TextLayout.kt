@@ -524,7 +524,11 @@ class TextLayout private constructor(
      */
     @get:Px
     val baseline: Int
-        get() = paddingTop + layout.getLineBaseline(0)
+        get() = if (_layout == null) {
+            -1
+        } else {
+            paddingTop + layout.getLineBaseline(0)
+        }
 
     /**
      * Прозрачность текста разметки.
@@ -1438,7 +1442,7 @@ class TextLayout private constructor(
             val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
 
             val hasMetricAffectingSpan = text is Spannable
-                    && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty()
+                && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty()
 
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
