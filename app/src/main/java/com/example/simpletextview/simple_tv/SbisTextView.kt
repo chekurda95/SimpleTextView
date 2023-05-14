@@ -481,6 +481,14 @@ open class SbisTextView : View, SbisTextViewApi {
         return layoutTouch || superTouch
     }
 
+    override fun post(action: Runnable?): Boolean =
+        // Эффективное средство для ускорения момента обработки клика на слабых девайсах.
+        if (action?.javaClass?.simpleName == PERFORM_CLICK_RUNNABLE_NAME) {
+            false
+        } else {
+            super.post(action)
+        }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val startTime = System.nanoTime()
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
@@ -787,6 +795,7 @@ private const val DEFAULT_MAX_LINES = Int.MAX_VALUE
 private const val FADING_EDGE_NONE = 0x00000000
 private const val FADING_EDGE_HORIZONTAL = 0x00001000
 private const val ITALIC_STYLE_PAINT_SKEW = -0.25f
+private const val PERFORM_CLICK_RUNNABLE_NAME = "PerformClick"
 
 private const val DESCRIPTION_TEXT_KEY = "text"
 private const val DESCRIPTION_TEXT_SIZE_KEY = "text_size"
