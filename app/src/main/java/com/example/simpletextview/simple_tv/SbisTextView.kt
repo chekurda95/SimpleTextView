@@ -346,7 +346,6 @@ open class SbisTextView : View, SbisTextViewApi {
 
     init {
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
-        postDelayed({isVisible = true}, 2000)
     }
 
     override fun setText(@StringRes stringRes: Int) {
