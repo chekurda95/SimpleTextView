@@ -65,14 +65,7 @@ open class SbisTextView : View, SbisTextViewApi {
         @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
         @StyleRes defStyleRes: Int = R.style.SbisTextViewDefaultTheme
     ) : super(context, attrs, defStyleAttr, defStyleRes) {
-        if (isGone) {
-            isLazyObtain = true
-            lazyAttrs = attrs
-            lazyDefStyleAttr = defStyleAttr
-            lazyDefStyleRes = defStyleRes
-        } else {
-            obtainAttrs(attrs, defStyleAttr, defStyleRes)
-        }
+        obtainAttrs(attrs, defStyleAttr, defStyleRes)
     }
 
     /**
@@ -353,6 +346,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     init {
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        postDelayed({isVisible = true}, 2000)
     }
 
     override fun setText(@StringRes stringRes: Int) {
@@ -595,8 +589,16 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun obtainAttrs(
         attrs: AttributeSet? = null,
         @AttrRes defStyleAttr: Int = 0,
-        @StyleRes defStyleRes: Int = 0
+        @StyleRes defStyleRes: Int = 0,
+        initialObtain: Boolean = true
     ) {
+        if (initialObtain && isGone) {
+            isLazyObtain = true
+            lazyAttrs = attrs
+            lazyDefStyleAttr = defStyleAttr
+            lazyDefStyleRes = defStyleRes
+            return
+        }
         context.withStyledAttributes(attrs, R.styleable.SbisTextView, defStyleAttr, defStyleRes) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 saveAttributeDataForStyleable(
@@ -880,7 +882,12 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private fun checkLazyObtain() {
         if (isLazyObtain && isVisible) {
-            obtainAttrs(lazyAttrs, lazyDefStyleAttr ?: 0, lazyDefStyleRes ?: 0)
+            obtainAttrs(
+                attrs = lazyAttrs,
+                defStyleAttr = lazyDefStyleAttr ?: 0,
+                defStyleRes = lazyDefStyleRes ?: 0,
+                initialObtain = false
+            )
             isLazyObtain = false
             lazyAttrs = null
             lazyDefStyleAttr = null
