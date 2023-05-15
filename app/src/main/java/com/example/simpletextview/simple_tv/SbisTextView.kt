@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.withStyledAttributes
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import com.example.simpletextview.BuildConfig
 import com.example.simpletextview.R
 import com.example.simpletextview.custom_tools.TextLayout
@@ -37,6 +38,7 @@ import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
 import com.example.simpletextview.metrics.Statistic
+import com.example.simpletextview.simple_tv.InitializedField.*
 import org.apache.commons.lang3.StringUtils.EMPTY
 import org.json.JSONObject
 
@@ -63,7 +65,14 @@ open class SbisTextView : View, SbisTextViewApi {
         @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
         @StyleRes defStyleRes: Int = R.style.SbisTextViewDefaultTheme
     ) : super(context, attrs, defStyleAttr, defStyleRes) {
-        obtainAttrs(attrs, defStyleAttr, defStyleRes)
+        if (isGone) {
+            isLazyObtain = true
+            lazyAttrs = attrs
+            lazyDefStyleAttr = defStyleAttr
+            lazyDefStyleRes = defStyleRes
+        } else {
+            obtainAttrs(attrs, defStyleAttr, defStyleRes)
+        }
     }
 
     /**
@@ -102,9 +111,19 @@ open class SbisTextView : View, SbisTextViewApi {
         if (BuildConfig.DEBUG) DebugDescriptionProvider()
         else ReleaseDescriptionProvider()
 
+    private var isLazyObtain: Boolean = false
+    private var lazyAttrs: AttributeSet? = null
+    private var lazyDefStyleAttr: Int? = null
+    private var lazyDefStyleRes: Int? = null
+
+    private var initializedFields = mutableSetOf<InitializedField>()
+    private val InitializedField.isInitialized: Boolean
+        get() = initializedFields.contains(this)
+
     override var text: CharSequence?
         get() = textLayout.text
         set(value) {
+            onFieldChanged(TEXT)
             val isChanged = configure {
                 val transformedText = transformationMethod?.getTransformation(value, this@SbisTextView)
                 text = transformedText ?: value ?: EMPTY
@@ -116,6 +135,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override var textSize: Float
         get() = textLayout.textPaint.textSize
         set(value) {
+            onFieldChanged(TEXT_SIZE)
             configure { paint.textSize = value }
         }
 
@@ -130,17 +150,20 @@ open class SbisTextView : View, SbisTextViewApi {
     override var linkTextColor: Int
         get() = linkTextColors?.defaultColor ?: textColor
         set(value) {
+            onFieldChanged(LINK_TEXT_COLOR)
             linkTextColors = ColorStateList.valueOf(value)
         }
 
     override var linkTextColors: ColorStateList? = null
         set(value) {
+            onFieldChanged(LINK_TEXT_COLOR)
             field = value
             updateColors()
         }
 
     override var allCaps: Boolean = false
         set(value) {
+            onFieldChanged(ALL_CAPS)
             if (field == value) return
             field = value
             transformationMethod = if (value) AllCapsTransformationMethod() else null
@@ -149,6 +172,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override var isSingleLine: Boolean
         get() = textLayout.isSingleLine
         set(value) {
+            onFieldChanged(IS_SINGLE_LINE)
             configure {
                 isSingleLine = value
                 maxLines = if (value) SINGLE_LINE else DEFAULT_MAX_LINES
@@ -159,6 +183,9 @@ open class SbisTextView : View, SbisTextViewApi {
     override var lines: Int?
         get() = if (maxLines == minLines) maxLines else null
         set(value) {
+            onFieldChanged(LINES)
+            onFieldChanged(MAX_LINES)
+            onFieldChanged(MIN_LINES)
             configure {
                 maxLines = value ?: DEFAULT_MAX_LINES
                 minLines = value ?: DEFAULT_MIN_LINES
@@ -168,12 +195,14 @@ open class SbisTextView : View, SbisTextViewApi {
     override var maxLines: Int?
         get() = textLayout.maxLines
         set(value) {
+            onFieldChanged(MAX_LINES)
             configure { maxLines = value ?: DEFAULT_MAX_LINES }
         }
 
     override var minLines: Int?
         get() = textLayout.minLines
         set(value) {
+            onFieldChanged(MIN_LINES)
             configure { minLines = value ?: DEFAULT_MIN_LINES }
         }
 
@@ -183,35 +212,41 @@ open class SbisTextView : View, SbisTextViewApi {
     override var maxWidth: Int?
         get() = textLayout.maxWidth
         set(value) {
+            onFieldChanged(MAX_WIDTH)
             configure { maxWidth = value }
         }
 
     override var minWidth: Int?
         get() = textLayout.minWidth
         set(value) {
+            onFieldChanged(MIN_WIDTH)
             configure { minWidth = value ?: 0 }
         }
 
     override var maxHeight: Int?
         get() = textLayout.maxHeight
         set(value) {
+            onFieldChanged(MAX_HEIGHT)
             configure { maxHeight = value }
         }
 
     override var minHeight: Int?
         get() = textLayout.minHeight
         set(value) {
+            onFieldChanged(MIN_HEIGHT)
             configure { minHeight = value ?: 0 }
         }
 
     override var maxLength: Int?
         get() = textLayout.maxLength
         set(value) {
+            onFieldChanged(MAX_LENGTH)
             configure { maxLength = value ?: Int.MAX_VALUE }
         }
 
     override var gravity: Int = Gravity.NO_GRAVITY
         set(value) {
+            onFieldChanged(GRAVITY)
             if (field == value) return
             field = value
             textLayout.configure { alignment = getLayoutAlignment() }
@@ -226,12 +261,14 @@ open class SbisTextView : View, SbisTextViewApi {
     override var typeface: Typeface?
         get() = paint.typeface
         set(value) {
+            onFieldChanged(TYPEFACE)
             configure { paint.typeface = value }
         }
 
     override var ellipsize: TruncateAt?
         get() = textLayout.ellipsize
         set(value) {
+            onFieldChanged(ELLIPSIZE)
             configure { ellipsize = value }
         }
 
@@ -241,6 +278,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override var includeFontPadding: Boolean
         get() = textLayout.includeFontPad
         set(value) {
+            onFieldChanged(INCLUDE_FONT_PADDING)
             configure { includeFontPad = value }
         }
 
@@ -268,6 +306,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override var breakStrategy: Int
         get() = textLayout.breakStrategy
         set(value) {
+            onFieldChanged(BREAK_STRATEGY)
             configure { breakStrategy = value.coerceAtLeast(0) }
         }
 
@@ -275,6 +314,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override var hyphenationFrequency: Int
         get() = textLayout.hyphenationFrequency
         set(value) {
+            onFieldChanged(HYPHENATION_FREQUENCY)
             configure { hyphenationFrequency = value.coerceAtLeast(0) }
         }
 
@@ -340,6 +380,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun setTextColor(colorStateList: ColorStateList?) {
+        onFieldChanged(TEXT_COLOR)
         textLayout.colorStateList = colorStateList
         invalidate()
     }
@@ -355,25 +396,31 @@ open class SbisTextView : View, SbisTextViewApi {
 
         textLayout.configure {
             if (textAppearance.textSize != null) {
+                onFieldChanged(TEXT_SIZE)
                 this.paint.textSize = textAppearance.textSize
                 shouldLayout = true
             }
             if (textAppearance.color != null) {
+                onFieldChanged(TEXT_COLOR)
                 this.paint.color = textAppearance.color
                 shouldInvalidate = true
             }
             if (textAppearance.typeface != null) {
+                onFieldChanged(TYPEFACE)
                 this.paint.typeface = textAppearance.typeface
                 shouldLayout = true
             }
         }
         if (textAppearance.colorStateList != null) {
+            onFieldChanged(TEXT_COLOR)
             textLayout.colorStateList = textAppearance.colorStateList
         }
         if (textAppearance.linkColorStateList != null) {
+            onFieldChanged(LINK_TEXT_COLOR)
             this@SbisTextView.linkTextColors = textAppearance.linkColorStateList
         }
         if (textAppearance.allCaps == true) {
+            onFieldChanged(ALL_CAPS)
             this@SbisTextView.allCaps = true
         }
         when {
@@ -423,6 +470,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun setEnabled(enabled: Boolean) {
         super.setEnabled(enabled)
+        onFieldChanged(IS_ENABLED)
         textLayout.isEnabled = enabled
     }
 
@@ -488,6 +536,11 @@ open class SbisTextView : View, SbisTextViewApi {
         } else {
             super.post(action)
         }
+
+    override fun setVisibility(visibility: Int) {
+        super.setVisibility(visibility)
+        checkLazyObtain()
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val startTime = System.nanoTime()
@@ -562,33 +615,59 @@ open class SbisTextView : View, SbisTextViewApi {
             } else {
                 null
             }
-            val text = getText(R.styleable.SbisTextView_android_text) ?: EMPTY
-            val textSize = getDimensionPixelSize(R.styleable.SbisTextView_android_textSize, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-                ?: textAppearanceData?.textSize
-            val colorStateList = SbisTextViewObtainHelper.getColorStateList(
-                context,
-                this,
-                R.styleable.SbisTextView_android_textColor
-            ) ?: textAppearanceData?.colorStateList
-            val color = colorStateList?.defaultColor
-                ?: getColor(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
+            val text = if (!TEXT.isInitialized) {
+                getText(R.styleable.SbisTextView_android_text)
+            } else {
+                text
+            } ?: EMPTY
+            val textSize = if (!TEXT_SIZE.isInitialized) {
+                getDimensionPixelSize(R.styleable.SbisTextView_android_textSize, NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-                ?: getResourceId(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
+                    ?: textAppearanceData?.textSize
+            } else {
+                textSize
+            }
+            val colorStateList = if (!TEXT_COLOR.isInitialized) {
+                SbisTextViewObtainHelper.getColorStateList(
+                    context,
+                    this,
+                    R.styleable.SbisTextView_android_textColor
+                )
+            } else {
+                textColors
+            }
+            val resultColorStateList = if (!TEXT_COLOR.isInitialized) {
+                colorStateList ?: textAppearanceData?.colorStateList
+            } else {
+                textColors
+            }
+            val color = if (!TEXT_COLOR.isInitialized) {
+                colorStateList?.defaultColor
+                    ?: getColor(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
+                        .takeIf { it != NO_RESOURCE }
+                    ?: getResourceId(R.styleable.SbisTextView_android_textColor, NO_RESOURCE)
+                        .takeIf { it != NO_RESOURCE }
+                        ?.let { ContextCompat.getColor(context, it) }
+                    ?: textAppearanceData?.colorStateList?.defaultColor
+                    ?: textAppearanceData?.color
+                    ?: ContextCompat.getColor(context, R.color.black)
+            } else {
+                textColor
+            }
+            val linkColorStateList = if (!LINK_TEXT_COLOR.isInitialized) {
+                SbisTextViewObtainHelper.getColorStateList(
+                    context,
+                    this,
+                    R.styleable.SbisTextView_android_textColorLink
+                ) ?: textAppearanceData?.linkColorStateList
+            } else {
+                linkTextColors
+            }
+            val typeface = if (!TYPEFACE.isInitialized) {
+                val fontFamily = getResourceId(R.styleable.SbisTextView_android_fontFamily, NO_RESOURCE)
                     .takeIf { it != NO_RESOURCE }
-                    ?.let { ContextCompat.getColor(context, it) }
-                ?: textAppearanceData?.color
-                ?: ContextCompat.getColor(context, R.color.black)
-            val linkColorStateList = SbisTextViewObtainHelper.getColorStateList(
-                context,
-                this,
-                R.styleable.SbisTextView_android_textColorLink
-            ) ?: textAppearanceData?.linkColorStateList
-            val fontFamily = getResourceId(R.styleable.SbisTextView_android_fontFamily, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val textStyle = getInt(R.styleable.SbisTextView_android_textStyle, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val typeface =
+                val textStyle = getInt(R.styleable.SbisTextView_android_textStyle, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
                 if (fontFamily == null && textStyle == null) {
                     textAppearanceData?.typeface ?: paint.typeface
                 } else {
@@ -599,14 +678,31 @@ open class SbisTextView : View, SbisTextViewApi {
                         textStyle
                     )
                 }
-
-            val includeFontPadding = getBoolean(R.styleable.SbisTextView_android_includeFontPadding, true)
-            val allCaps = getBoolean(R.styleable.SbisTextView_android_textAllCaps, false)
-
-            val gravity = getInt(R.styleable.SbisTextView_android_gravity, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val ellipsize = getInt(R.styleable.SbisTextView_android_ellipsize, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
+            } else {
+                typeface
+            }
+            val includeFontPadding = if (!INCLUDE_FONT_PADDING.isInitialized) {
+                getBoolean(R.styleable.SbisTextView_android_includeFontPadding, true)
+            } else {
+                includeFontPadding
+            }
+            val allCaps = if (!ALL_CAPS.isInitialized) {
+                getBoolean(R.styleable.SbisTextView_android_textAllCaps, false)
+            } else {
+                allCaps
+            }
+            val gravity = if (!GRAVITY.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_gravity, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                gravity
+            }
+            val ellipsize = if (!ELLIPSIZE.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_ellipsize, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                ellipsize
+            }
             val truncateAt = ellipsize?.let {
                 when (ellipsize) {
                     ELLIPSIZE_NONE -> null
@@ -617,29 +713,73 @@ open class SbisTextView : View, SbisTextViewApi {
                     else -> null
                 }
             }
-            val breakStrategy = getInt(R.styleable.SbisTextView_android_breakStrategy, 0)
-            val hyphenationFrequency = getInt(R.styleable.SbisTextView_android_hyphenationFrequency, 0)
-            val isEnabled = getBoolean(R.styleable.SbisTextView_android_enabled, isEnabled)
-
-            val lines = getInt(R.styleable.SbisTextView_android_lines, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val maxLines = getInt(R.styleable.SbisTextView_android_maxLines, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-                ?: DEFAULT_MAX_LINES
-            val minLines = getInt(R.styleable.SbisTextView_android_minLines, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-                ?: DEFAULT_MIN_LINES
-            val singleLine = getBoolean(R.styleable.SbisTextView_android_singleLine, false)
-            val maxLength = getInt(R.styleable.SbisTextView_android_maxLength, Int.MAX_VALUE)
-
-            val minWidth = getDimensionPixelSize(R.styleable.SbisTextView_android_minWidth, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val maxWidth = getDimensionPixelSize(R.styleable.SbisTextView_android_maxWidth, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val minHeight = getDimensionPixelSize(R.styleable.SbisTextView_android_minHeight, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
-            val maxHeight = getDimensionPixelSize(R.styleable.SbisTextView_android_maxHeight, NO_RESOURCE)
-                .takeIf { it != NO_RESOURCE }
+            val breakStrategy = if (!BREAK_STRATEGY.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_breakStrategy, 0)
+            } else {
+                breakStrategy
+            }
+            val hyphenationFrequency = if (!HYPHENATION_FREQUENCY.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_hyphenationFrequency, 0)
+            } else {
+                hyphenationFrequency
+            }
+            val isEnabled = if (!IS_ENABLED.isInitialized) {
+                getBoolean(R.styleable.SbisTextView_android_enabled, isEnabled)
+            } else {
+                isEnabled
+            }
+            val lines = if (!LINES.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_lines, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                lines
+            }
+            val maxLines = if (!MAX_LINES.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_maxLines, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                maxLines
+            } ?: DEFAULT_MAX_LINES
+            val minLines = if (!MIN_LINES.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_minLines, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                minLines
+            } ?: DEFAULT_MIN_LINES
+            val isSingleLine = if (!IS_SINGLE_LINE.isInitialized) {
+                getBoolean(R.styleable.SbisTextView_android_singleLine, false)
+            } else {
+                isSingleLine
+            }
+            val maxLength = if (!MAX_LENGTH.isInitialized) {
+                getInt(R.styleable.SbisTextView_android_maxLength, Int.MAX_VALUE)
+            } else {
+                maxLength ?: Int.MAX_VALUE
+            }
+            val minWidth = if (!MIN_WIDTH.isInitialized) {
+                getDimensionPixelSize(R.styleable.SbisTextView_android_minWidth, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                minWidth
+            }
+            val maxWidth = if (!MAX_WIDTH.isInitialized) {
+                getDimensionPixelSize(R.styleable.SbisTextView_android_maxWidth, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                maxWidth
+            }
+            val minHeight = if (!MIN_HEIGHT.isInitialized) {
+                getDimensionPixelSize(R.styleable.SbisTextView_android_minHeight, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                minHeight
+            }
+            val maxHeight = if (!MAX_HEIGHT.isInitialized) {
+                getDimensionPixelSize(R.styleable.SbisTextView_android_maxHeight, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+            } else {
+                maxHeight
+            }
 
             val requiresFadingEdge = getInt(
                 R.styleable.SbisTextView_android_requiresFadingEdge,
@@ -655,12 +795,16 @@ open class SbisTextView : View, SbisTextViewApi {
                     paint.typeface = typeface
                 }
                 this.includeFontPad = includeFontPadding
-                this.ellipsize = if (singleLine && ellipsize == null) TruncateAt.END else truncateAt
                 this.breakStrategy = breakStrategy
                 this.hyphenationFrequency = hyphenationFrequency
-                this.maxLines = if (singleLine) SINGLE_LINE else lines ?: maxLines
-                this.minLines = if (singleLine) DEFAULT_MIN_LINES else lines ?: minLines
-                this.isSingleLine = singleLine
+                this.ellipsize = if (!ELLIPSIZE.isInitialized && isSingleLine && ellipsize == null) {
+                    TruncateAt.END
+                } else {
+                    truncateAt
+                }
+                this.maxLines = if (!MAX_LINES.isInitialized && isSingleLine) SINGLE_LINE else lines ?: maxLines
+                this.minLines = if (!MIN_LINES.isInitialized && isSingleLine) DEFAULT_MIN_LINES else lines ?: minLines
+                this.isSingleLine = isSingleLine
                 this.maxLength = maxLength
                 if (minWidth != null) this.minWidth = minWidth
                 if (maxWidth != null) this.maxWidth = maxWidth
@@ -668,7 +812,7 @@ open class SbisTextView : View, SbisTextViewApi {
                 if (maxHeight != null) this.maxHeight = maxHeight
             }
             textLayout.also {
-                it.colorStateList = colorStateList
+                it.colorStateList = resultColorStateList
                 it.requiresFadingEdge = requiresFadingEdge
                 it.fadeEdgeSize = fadingEdgeLength
             }
@@ -732,6 +876,21 @@ open class SbisTextView : View, SbisTextViewApi {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             foreground?.setVisible(false, true)
         }
+    }
+
+    private fun checkLazyObtain() {
+        if (isLazyObtain && isVisible) {
+            obtainAttrs(lazyAttrs, lazyDefStyleAttr ?: 0, lazyDefStyleRes ?: 0)
+            isLazyObtain = false
+            lazyAttrs = null
+            lazyDefStyleAttr = null
+            lazyDefStyleRes = null
+        }
+    }
+
+    private fun onFieldChanged(field: InitializedField) {
+        if (!isLazyObtain) return
+        initializedFields.add(field)
     }
 
     override fun setVerticalFadingEdgeEnabled(verticalFadingEdgeEnabled: Boolean) = Unit
@@ -805,3 +964,27 @@ private const val DESCRIPTION_MIN_LINES_KEY = "min_lines"
 private const val DESCRIPTION_ELLIPSIZE_KEY = "ellipsize"
 private const val NONE_VALUE = "none"
 private const val COLOR_HEX_STRING_FORMAT = "#%06x"
+
+private enum class InitializedField {
+    TEXT,
+    TEXT_SIZE,
+    TEXT_COLOR,
+    LINK_TEXT_COLOR,
+    TYPEFACE,
+    INCLUDE_FONT_PADDING,
+    ALL_CAPS,
+    GRAVITY,
+    ELLIPSIZE,
+    BREAK_STRATEGY,
+    HYPHENATION_FREQUENCY,
+    IS_ENABLED,
+    LINES,
+    MAX_LINES,
+    MIN_LINES,
+    IS_SINGLE_LINE,
+    MAX_LENGTH,
+    MIN_WIDTH,
+    MAX_WIDTH,
+    MIN_HEIGHT,
+    MAX_HEIGHT
+}
