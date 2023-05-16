@@ -524,6 +524,13 @@ class TextLayout private constructor(
      */
     @get:Px
     val baseline: Int
+        get() = paddingTop + layout.getLineBaseline(0)
+
+    /**
+     * Базовая линия текстовой разметки, вызов которой не вызывает лишних построений [layout].
+     */
+    @get:Px
+    val safeLayoutBaseLine: Int
         get() = if (_layout == null) {
             -1
         } else {

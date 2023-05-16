@@ -512,8 +512,14 @@ open class SbisTextView : View, SbisTextViewApi {
         updateColors()
     }
 
-    override fun getBaseline(): Int =
-        getLayoutTop() + textLayout.baseline
+    override fun getBaseline(): Int {
+        val layoutBaseLine = textLayout.safeLayoutBaseLine
+        return if (layoutBaseLine != -1) {
+            getLayoutTop() + layoutBaseLine
+        } else {
+            layoutBaseLine
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
