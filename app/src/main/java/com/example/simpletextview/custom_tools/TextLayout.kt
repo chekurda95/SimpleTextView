@@ -1416,7 +1416,7 @@ class TextLayout private constructor(
         fun getPrecomputedWidth(availableWidth: Int? = null): Int {
             val lastPrecomputedData = precomputedData
             val textWidth = when {
-                text.isEmpty() -> 0
+                text.isEmpty() && minWidth == 0 && (maxWidth ?: Int.MAX_VALUE) == Int.MAX_VALUE -> 0
                 isPrecomputedActual &&
                         lastPrecomputedData != null &&
                         lastPrecomputedData.availableWidth == availableWidth -> lastPrecomputedData.precomputedTextWidth

@@ -67,7 +67,12 @@ object SbisTextViewObtainHelper {
         when {
             fontFamily != null -> {
                 try {
-                    ResourcesCompat.getFont(context, fontFamily)
+                    val typeface = ResourcesCompat.getFont(context, fontFamily)
+                    if (textStyle != null) {
+                        Typeface.create(typeface, textStyle)
+                    } else {
+                        typeface
+                    }
                 } catch (ex: Resources.NotFoundException) {
                     // Expected if it is not a font resource.
                     val familyName = context.resources.getString(fontFamily)

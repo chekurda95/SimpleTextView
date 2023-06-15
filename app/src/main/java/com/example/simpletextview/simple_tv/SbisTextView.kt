@@ -90,7 +90,17 @@ open class SbisTextView : View, SbisTextViewApi {
         applyConfig(config)
     }
 
-    private val textLayout: TextLayout = TextLayout {
+    /**
+     * Конструктор для тестирования делегации [TextLayout].
+     */
+    internal constructor(
+        context: Context,
+        textLayout: TextLayout
+    ) : super(context) {
+        this.textLayout = textLayout
+    }
+
+    private var textLayout: TextLayout = TextLayout {
         maxLines = DEFAULT_MAX_LINES
         minLines = DEFAULT_MIN_LINES
         ellipsize = null
@@ -178,30 +188,44 @@ open class SbisTextView : View, SbisTextViewApi {
         }
 
     override val lineCount: Int
-        get() = layout.lineCount
+        get() = textLayout.lineCount
 
-    override var maxWidth: Int?
-        get() = textLayout.maxWidth
+    override var maxWidth: Int? = null
         set(value) {
-            configure { maxWidth = value }
+            field = value?.coerceAtLeast(0)
+            configure {
+                maxWidth = field?.let { it - paddingStart - paddingEnd }
+                    ?.coerceAtLeast(0)
+            }
         }
 
-    override var minWidth: Int?
-        get() = textLayout.minWidth
+    override var minWidth: Int? = 0
         set(value) {
-            configure { minWidth = value ?: 0 }
+            field = value?.coerceAtLeast(0) ?: 0
+            configure {
+                minWidth = field?.let { it - paddingStart - paddingEnd}
+                    ?.coerceAtLeast(0)
+                    ?: 0
+            }
         }
 
-    override var maxHeight: Int?
-        get() = textLayout.maxHeight
+    override var maxHeight: Int? = null
         set(value) {
-            configure { maxHeight = value }
+            field = value?.coerceAtLeast(0)
+            configure {
+                maxHeight = field?.let { it - paddingTop - paddingBottom }
+                    ?.coerceAtLeast(0)
+            }
         }
 
-    override var minHeight: Int?
-        get() = textLayout.minHeight
+    override var minHeight: Int? = 0
         set(value) {
-            configure { minHeight = value ?: 0 }
+            field = value?.coerceAtLeast(0) ?: 0
+            configure {
+                minHeight = field?.let { it - paddingTop - paddingBottom }
+                    ?.coerceAtLeast(0)
+                    ?: 0
+            }
         }
 
     override var maxLength: Int?
@@ -289,11 +313,8 @@ open class SbisTextView : View, SbisTextViewApi {
     var width: Int
         get() = super.getWidth()
         set(value) {
-            val width = value.takeIf { it >= 0 }
-            configure {
-                minWidth = width ?: 0
-                maxWidth = width
-            }
+            minWidth = value
+            maxWidth = value
         }
 
     /**
@@ -304,11 +325,8 @@ open class SbisTextView : View, SbisTextViewApi {
     var height: Int
         get() = super.getHeight()
         set(value) {
-            val height = value.takeIf { it >= 0 }
-            configure {
-                minHeight = height ?: 0
-                maxHeight = height
-            }
+            minHeight = value
+            maxHeight = value
         }
 
     init {
@@ -480,6 +498,35 @@ open class SbisTextView : View, SbisTextViewApi {
         }
     }
 
+    override fun setPadding(left: Int, top: Int, right: Int, bottom: Int) {
+        super.setPadding(left, top, right, bottom)
+        refreshTextRestrictions()
+    }
+
+    override fun setPaddingRelative(start: Int, top: Int, end: Int, bottom: Int) {
+        super.setPaddingRelative(start, top, end, bottom)
+        refreshTextRestrictions()
+    }
+
+    private fun refreshTextRestrictions() {
+        configure {
+            minWidth = this@SbisTextView.minWidth
+                ?.let { it - paddingStart - paddingEnd }
+                ?.coerceAtLeast(0)
+                ?: 0
+            minHeight = this@SbisTextView.minHeight
+                ?.let { it - paddingTop - paddingBottom }
+                ?.coerceAtLeast(0)
+                ?: 0
+            maxWidth = this@SbisTextView.maxWidth
+                ?.let { it - paddingStart - paddingEnd }
+                ?.coerceAtLeast(0)
+            maxHeight = this@SbisTextView.maxHeight
+                ?.let { it - paddingTop - paddingBottom }
+                ?.coerceAtLeast(0)
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val layoutTouch = if (isEnabled) textLayout.onTouch(this, event) else false
@@ -496,7 +543,6 @@ open class SbisTextView : View, SbisTextViewApi {
         }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val startTime = System.nanoTime()
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
             getInternalSuggestedMinimumWidth(availableWidth)
         }
@@ -506,8 +552,6 @@ open class SbisTextView : View, SbisTextViewApi {
             suggestedMinimumHeight
         }
         setMeasuredDimension(width, height)
-        val resultTime = (System.nanoTime() - startTime) / 1000
-        Statistic.addSbisMeasureTime(resultTime)
     }
 
     override fun getSuggestedMinimumWidth(): Int =
@@ -518,11 +562,15 @@ open class SbisTextView : View, SbisTextViewApi {
         val availableTextWidth = availableWidth?.let { it - horizontalPadding }
         return (horizontalPadding + textLayout.getPrecomputedWidth(availableTextWidth))
             .coerceAtLeast(super.getSuggestedMinimumWidth())
+            .coerceAtLeast(minWidth ?: 0)
+            .coerceAtMost(maxWidth ?: Int.MAX_VALUE)
     }
 
     override fun getSuggestedMinimumHeight(): Int =
         (paddingTop + paddingBottom + textLayout.height)
             .coerceAtLeast(super.getSuggestedMinimumHeight())
+            .coerceAtLeast(minHeight ?: 0)
+            .coerceAtMost(maxHeight ?: Int.MAX_VALUE)
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -531,10 +579,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        val start = System.nanoTime()
         internalLayout()
-        val resultTime = (System.nanoTime() - start) / 1000
-        Statistic.addSbisLayoutTime(resultTime)
     }
 
     private fun internalLayout() {
@@ -662,13 +707,9 @@ open class SbisTextView : View, SbisTextViewApi {
                 this.hyphenationFrequency = hyphenationFrequency
                 this.ellipsize = if (isSingleLine && ellipsize == null) TruncateAt.END else truncateAt
                 this.maxLines = if (isSingleLine) SINGLE_LINE else lines ?: maxLines
-                this.minLines = if (isSingleLine) DEFAULT_MIN_LINES else lines ?: minLines
+                this.minLines = if (isSingleLine) SINGLE_LINE else lines ?: minLines
                 this.isSingleLine = isSingleLine
                 this.maxLength = maxLength
-                if (minWidth != null) this.minWidth = minWidth
-                if (maxWidth != null) this.maxWidth = maxWidth
-                if (minHeight != null) this.minHeight = minHeight
-                if (maxHeight != null) this.maxHeight = maxHeight
             }
             textLayout.also {
                 it.colorStateList = resultColorStateList
@@ -680,6 +721,10 @@ open class SbisTextView : View, SbisTextViewApi {
                 it.isEnabled = isEnabled
                 it.gravity = gravity ?: Gravity.NO_GRAVITY
                 it.allCaps = allCaps
+                if (minWidth != null) it.minWidth = minWidth
+                if (maxWidth != null) it.maxWidth = maxWidth
+                if (minHeight != null) it.minHeight = minHeight
+                if (maxHeight != null) it.maxHeight = maxHeight
             }
         }
     }
