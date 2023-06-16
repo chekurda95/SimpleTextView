@@ -59,6 +59,7 @@ object LayoutCreator {
      * а с maxLines == 1 только в случае, когда ширина текста меньше [width].
      * @property breakStrategy стратегия разрыва строки, см [Layout.BREAK_STRATEGY_SIMPLE].
      * @property hyphenationFrequency частота переноса строк, см. [Layout.HYPHENATION_FREQUENCY_NONE].
+     * @property textDir направление текста.
      */
     fun createLayout(
         text: CharSequence,
@@ -74,10 +75,18 @@ object LayoutCreator {
         breakStrategy: Int = 0,
         hyphenationFrequency: Int = 0,
         ellipsize: TextUtils.TruncateAt? = null,
+        textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR,
         boring: BoringLayout.Metrics? = null,
         boringLayout: BoringLayout? = null
     ): Layout {
         val checkedBoring = checkBoring(boring, width, maxLines, isSingleLine, ellipsize)
+        val includeFontPadding = if (checkedBoring != null ||
+            !textDir.isRtl(text, 0, textLength.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT))
+        ) {
+            includeFontPad
+        } else {
+            true
+        }
         return if (checkedBoring != null) {
             createBoringLayout(
                 boring = checkedBoring,
@@ -87,7 +96,7 @@ object LayoutCreator {
                 alignment = alignment,
                 spacingMulti = spacingMulti,
                 spacingAdd = spacingAdd,
-                includeFontPad = includeFontPad,
+                includeFontPad = includeFontPadding,
                 ellipsize = ellipsize,
                 boringLayout = boringLayout
             )
@@ -100,11 +109,12 @@ object LayoutCreator {
                 textLength = textLength,
                 spacingMulti = spacingMulti,
                 spacingAdd = spacingAdd,
-                includeFontPad = includeFontPad,
+                includeFontPad = includeFontPadding,
                 maxLines = maxLines,
                 breakStrategy = breakStrategy,
                 hyphenationFrequency = hyphenationFrequency,
-                ellipsize = ellipsize
+                ellipsize = ellipsize,
+                textDir = textDir
             )
         }
     }
@@ -163,7 +173,8 @@ object LayoutCreator {
         maxLines: Int = 1,
         breakStrategy: Int = 0,
         hyphenationFrequency: Int = 0,
-        ellipsize: TextUtils.TruncateAt? = null
+        ellipsize: TextUtils.TruncateAt? = null,
+        textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR
     ): StaticLayout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             StaticLayout.Builder.obtain(text, 0, textLength, paint, width)
@@ -177,7 +188,9 @@ object LayoutCreator {
                         setEllipsize(ellipsize)
                         setEllipsizedWidth(width)
                     }
-                }.build()
+                }
+                .setTextDirection(textDir)
+                .build()
         } else {
             hiddenStaticConstructor.newInstance(
                 text,
@@ -186,7 +199,7 @@ object LayoutCreator {
                 paint,
                 width,
                 alignment,
-                TextDirectionHeuristics.LTR,
+                textDir,
                 spacingMulti,
                 spacingAdd,
                 includeFontPad,
@@ -211,3 +224,4 @@ object LayoutCreator {
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f
 private const val SINGLE_LINE = 1
+internal const val RTL_SYMBOLS_CHECK_COUNT_LIMIT = 10

@@ -11,6 +11,8 @@ import android.text.Layout.Alignment
 import android.text.Spannable
 import android.text.Spanned
 import android.text.StaticLayout
+import android.text.TextDirectionHeuristic
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
@@ -44,6 +46,7 @@ import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
 import org.apache.commons.lang3.StringUtils
 import com.example.simpletextview.custom_tools.TextLayout.*
 import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
+import com.example.simpletextview.custom_tools.utils.layout.RTL_SYMBOLS_CHECK_COUNT_LIMIT
 import kotlin.math.roundToInt
 
 /**
@@ -218,6 +221,10 @@ class TextLayout private constructor(
 
     private var cachedBoring: BoringLayout.Metrics? = null
     private var boringLayout: BoringLayout? = null
+
+    private var viewLayoutDirection: Int = View.LAYOUT_DIRECTION_LTR
+    private var viewTextDirection: Int = View.TEXT_DIRECTION_FIRST_STRONG
+    private var textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR
 
     /**
      * Прикешированное состояние для исключения повторных измерений при многократных обращениях.
@@ -950,6 +957,20 @@ class TextLayout private constructor(
     }
 
     /**
+     * Обработать событие изменения RTL свойств view представления.
+     *
+     * Необходимо проксировать вызов из [View.onRtlPropertiesChanged],
+     * передавая [View.getLayoutDirection] и [View.getTextDirection].
+     */
+    fun onRtlPropertiesChanged(layoutDirection: Int, textDirection: Int) {
+        if (viewLayoutDirection != layoutDirection || viewTextDirection != textDirection) {
+            viewLayoutDirection = layoutDirection
+            viewTextDirection = textDirection
+            textDir = getTextDirectionHeuristic()
+        }
+    }
+
+    /**
      * Сделать текстовую разметку кликабельной.
      * @param parentView view, в которой находится текстовая разметка.
      *
@@ -1067,6 +1088,7 @@ class TextLayout private constructor(
             breakStrategy = params.breakStrategy
             hyphenationFrequency = params.hyphenationFrequency
             fadingEdgeSize = if (fadingEdgeRule) fadeEdgeSize else 0
+            textDir = this@TextLayout.textDir
             hasMetricAffectingSpan = precomputedData.hasMetricAffectingSpan
             lineLastSymbolIndex = precomputedData.lineLastSymbolIndex
             boring = precomputedData.isBoring
@@ -1079,6 +1101,25 @@ class TextLayout private constructor(
      */
     private fun updateFadeEdgeVisibility() {
         isFadeEdgeVisible = fadingEdgeRule && state.textWidth < layout.width
+    }
+
+    private fun getTextDirectionHeuristic(): TextDirectionHeuristic {
+        val defaultIsRtl = viewLayoutDirection == View.LAYOUT_DIRECTION_RTL
+        val defaultHeuristics = if (defaultIsRtl) {
+            TextDirectionHeuristics.FIRSTSTRONG_RTL
+        } else {
+            TextDirectionHeuristics.FIRSTSTRONG_LTR
+        }
+        return when (viewTextDirection) {
+            View.TEXT_DIRECTION_FIRST_STRONG -> defaultHeuristics
+            View.TEXT_DIRECTION_ANY_RTL -> TextDirectionHeuristics.ANYRTL_LTR
+            View.TEXT_DIRECTION_LTR -> TextDirectionHeuristics.LTR
+            View.TEXT_DIRECTION_RTL -> TextDirectionHeuristics.RTL
+            View.TEXT_DIRECTION_LOCALE -> TextDirectionHeuristics.LOCALE
+            View.TEXT_DIRECTION_FIRST_STRONG_LTR -> TextDirectionHeuristics.FIRSTSTRONG_LTR
+            View.TEXT_DIRECTION_FIRST_STRONG_RTL -> TextDirectionHeuristics.FIRSTSTRONG_RTL
+            else -> defaultHeuristics
+        }
     }
 
     /**
@@ -1454,9 +1495,10 @@ class TextLayout private constructor(
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
 
-            if (params.isSingleLine || text.isEmpty() ||
-                (text !is Spannable &&
-                    (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
+            if (!textDir.isRtl(text, 0, text.length.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT)) &&
+                (params.isSingleLine || text.isEmpty() ||
+                    (text !is Spannable &&
+                        (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE)))
             ) {
                 isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
             }

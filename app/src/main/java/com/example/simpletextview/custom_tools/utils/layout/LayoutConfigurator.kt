@@ -4,6 +4,8 @@ import android.text.BoringLayout
 import android.text.Layout
 import android.text.Spannable
 import android.text.StaticLayout
+import android.text.TextDirectionHeuristic
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.TextUtils
 import android.text.style.MetricAffectingSpan
@@ -76,6 +78,7 @@ object LayoutConfigurator {
      * Используется для отсечения текста, который будет находиться за пределами видимости.
      * @property hasMetricAffectingSpan (опционально, для оптимизации) признак того, что в тексте есть спаны,
      * влияющие на ширину строки. В случае null при необходимости этот признак будет получен при построении.
+     * @property textDir направление текста.
      */
     class Params internal constructor(
         var boring: BoringLayout.Metrics? = null,
@@ -94,7 +97,8 @@ object LayoutConfigurator {
         var hyphenationFrequency: Int = 0,
         var fadingEdgeSize: Int = 0,
         var lineLastSymbolIndex: Int? = null,
-        var hasMetricAffectingSpan: Boolean? = null
+        var hasMetricAffectingSpan: Boolean? = null,
+        var textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR
     )
 
     /**
@@ -121,6 +125,7 @@ object LayoutConfigurator {
             breakStrategy = params.breakStrategy,
             hyphenationFrequency = params.hyphenationFrequency,
             ellipsize = params.ellipsize,
+            textDir = params.textDir,
             boring = params.boring,
             boringLayout = params.boringLayout
         ).apply {

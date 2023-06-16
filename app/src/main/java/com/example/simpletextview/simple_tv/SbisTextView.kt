@@ -36,7 +36,6 @@ import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDir
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
-import com.example.simpletextview.metrics.Statistic
 import org.apache.commons.lang3.StringUtils.EMPTY
 import org.json.JSONObject
 
@@ -484,6 +483,11 @@ open class SbisTextView : View, SbisTextViewApi {
         if (isChanged && textLayout.requiresFadingEdge) safeRequestLayout()
     }
 
+    override fun onRtlPropertiesChanged(layoutDirection: Int) {
+        super.onRtlPropertiesChanged(layoutDirection)
+        textLayout.onRtlPropertiesChanged(layoutDirection, textDirection)
+    }
+
     override fun drawableStateChanged() {
         super.drawableStateChanged()
         updateColors()
@@ -583,7 +587,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     private fun internalLayout() {
-        textLayout.layout(paddingStart, getLayoutTop())
+        textLayout.layout(paddingLeft, getLayoutTop())
     }
 
     override fun onDraw(canvas: Canvas) {
