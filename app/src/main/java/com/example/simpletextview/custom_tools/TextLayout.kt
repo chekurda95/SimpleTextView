@@ -284,6 +284,11 @@ class TextLayout private constructor(
      */
     private var textColorAlpha = textPaint.alpha
 
+    private var autoSizeTextSizes = intArrayOf()
+    private var autoSizesCalculated: Boolean = false
+    private val autoTextSizePaint by lazy(LazyThreadSafetyMode.NONE, ::SimpleTextPaint)
+    private val availableSpaceRect = Rect()
+
     /**
      * Правило попытки использования затемнения сокращения [requiresFadingEdge] и [fadeEdgeSize].
      * Затемнение, как и для TextView, может происходить только для [isSingleLine] и [ellipsize] == null параметров,
@@ -353,7 +358,7 @@ class TextLayout private constructor(
                 lastLayout
             } else {
                 val precomputedData = state.getLayoutPrecomputedData()
-                createLayout(precomputedData).also { layout ->
+                createLayoutInternal(precomputedData).also { layout ->
                     isLayoutChanged = false
                     _layout = layout
                     if (layout is BoringLayout) boringLayout = layout
@@ -583,6 +588,68 @@ class TextLayout private constructor(
             val isChanged = field != safeValue
             field = safeValue
             if (isChanged) fadeShader = createFadeShader()
+        }
+
+    /**
+     * Установить режим автоматического определения размера текста.
+     * Размер текста исходит из заданных параметров:
+     * [autoSizeMaxTextSize] - Максимального размера текста.
+     * [autoSizeMinTextSize] - Минимального размера текста.
+     * [autoSizeStepGranularity] - Шаг перебора интервала от минимального до максимального размера.
+     *
+     * Для безусловного расчета размера текста для всего доступного пространства, даже если текст влезает -
+     * необходимо установить [isAutoSizeForAvailableSpace].
+     * (Чтобы добиться поведения аналогичного TextView с конкретными width и height, когда задан autoSizeTextType)
+     * Для ограничения максимальной высоты [TextLayout] необходимо использовать [autoSizeAvailableHeight]
+     * или [TextLayoutParams.maxHeight].
+     */
+    var isAutoTextSizeMode: Boolean = false
+
+    /**
+     * Установить состояние необходимости использовать все доступное пространство для определения размера текста,
+     * даже есть он помещается в выделенное пространство с текущим размером текста.
+     * Используется при включении [isAutoTextSizeMode].
+     */
+    var isAutoSizeForAvailableSpace: Boolean = false
+
+    /**
+     * Установить максимально допустимую высоту для режима автоматического определения размера текста.
+     *
+     * Использовать, когда при включении режима [isAutoTextSizeMode] необходимо ограничение по высоте
+     * для автоопределения размера текста и явно не указана максимальная высота разметки [TextLayoutParams.maxHeight].
+     */
+    @get:Px
+    var autoSizeAvailableHeight: Int = Int.MAX_VALUE
+
+    /**
+     * Установить максимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
+     */
+    @get:Px
+    var autoSizeMaxTextSize: Int = 300
+        set(value) {
+            if (field != value) autoSizesCalculated = false
+            field = value
+        }
+
+    /**
+     * Установить минимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
+     */
+    @get:Px
+    var autoSizeMinTextSize: Int = 1
+        set(value) {
+            if (field != value) autoSizesCalculated = false
+            field = value
+        }
+
+    /**
+     * Установить шаг перебора интервала от минимального до максимального размера текста
+     * для режима автоматического определения размера текста [isAutoTextSizeMode].
+     */
+    @get:Px
+    var autoSizeStepGranularity: Int = 1
+        set(value) {
+            if (field != value) autoSizesCalculated = false
+            field = value
         }
 
     /**
@@ -1067,18 +1134,28 @@ class TextLayout private constructor(
         drawableStateHelper.checkPressedState(ACTION_CANCEL, true)
     }
 
+    private fun createLayoutInternal(precomputedData: PrecomputedLayoutData): Layout =
+        createLayout(precomputedData)
+            .takeIf { !isAutoSizeRequired(it) }
+            ?: getAutoSizedLayout(precomputedData)
+
     /**
      * Обновить разметку по набору параметров [params] и [precomputedData].
      */
-    private fun createLayout(precomputedData: PrecomputedLayoutData): Layout =
+    private fun createLayout(
+        precomputedData: PrecomputedLayoutData,
+        paint: TextPaint = params.paint,
+        width: Int = state.textWidth,
+        ellipsize: TruncateAt? = params.ellipsize
+    ): Layout =
         LayoutConfigurator.createLayout(
             text = state.configuredText,
-            paint = params.paint
+            paint = paint
         ) {
-            width = state.textWidth
+            this.width = width
             maxHeight = state.layoutMaxHeight
             alignment = params.alignment
-            ellipsize = params.ellipsize
+            this.ellipsize = ellipsize
             includeFontPad = params.includeFontPad
             spacingAdd = params.spacingAdd
             spacingMulti = params.spacingMulti
@@ -1094,6 +1171,88 @@ class TextLayout private constructor(
             boring = precomputedData.isBoring
             boringLayout = this@TextLayout.boringLayout
         }
+
+    private fun isAutoSizeRequired(layout: Layout): Boolean {
+        val needCheckAutoSize = isAutoTextSizeMode && layout.text.isNotEmpty() && layout.width > 0
+        return needCheckAutoSize && (isAutoSizeForAvailableSpace ||
+                layout.getEllipsisCount(layout.lineCount - 1) > 0 ||
+                layout.height > availableSpaceRect.height())
+    }
+
+    private fun getAutoSizedLayout(precomputedData: PrecomputedLayoutData): Layout {
+        setupAutoSizeText()
+        autoTextSizePaint.reset()
+        autoTextSizePaint.set(textPaint)
+        autoTextSizePaint.textSize = textPaint.textSize
+        return findLargestFitsLayout(precomputedData)
+    }
+
+    private fun setupAutoSizeText() {
+        if (!isAutoTextSizeMode || autoSizesCalculated) return
+        val autoSizeValuesLength = (autoSizeMaxTextSize - autoSizeMinTextSize) / autoSizeStepGranularity
+        autoSizeTextSizes = IntArray(autoSizeValuesLength)
+        var sizeValue = autoSizeMinTextSize
+        repeat(autoSizeValuesLength) { index ->
+            autoSizeTextSizes[index] = sizeValue
+            sizeValue += autoSizeStepGranularity
+        }
+        autoSizesCalculated = true
+    }
+
+    private fun findLargestFitsLayout(precomputedData: PrecomputedLayoutData): Layout {
+        updateAvailableTextSpaceRect(precomputedData)
+        val autoPrecomputedData = precomputedData.copy(
+            lineLastSymbolIndex = null,
+            isBoring = null
+        )
+
+        val sizesCount = autoSizeTextSizes.size
+        var bestSizeIndex = 0
+        var lowIndex = 1
+        var highIndex = sizesCount - 1
+        var sizeToTryIndex: Int
+        while (lowIndex <= highIndex) {
+            sizeToTryIndex = (lowIndex + highIndex) / 2
+            if (suggestedSizeFits(autoSizeTextSizes[sizeToTryIndex], autoPrecomputedData)) {
+                bestSizeIndex = lowIndex
+                lowIndex = sizeToTryIndex + 1
+            } else {
+                highIndex = sizeToTryIndex - 1
+                bestSizeIndex = highIndex
+            }
+        }
+        val optimalTextSize = autoSizeTextSizes[bestSizeIndex]
+        autoTextSizePaint.textSize = optimalTextSize.toFloat()
+
+        return createLayout(autoPrecomputedData, autoTextSizePaint, availableSpaceRect.width())
+    }
+
+    private fun updateAvailableTextSpaceRect(precomputedData: PrecomputedLayoutData) {
+        val availableHeight = minOf(params.maxHeight ?: Int.MAX_VALUE, autoSizeAvailableHeight)
+        val maxTextHeight = (availableHeight - state.verticalPadding).coerceAtLeast(0)
+        val widthLimit = params.layoutWidth
+            ?: minOf(
+                precomputedData.availableWidth ?: Int.MAX_VALUE,
+                params.maxWidth ?: Int.MAX_VALUE
+            )
+        val textLimit = widthLimit - state.horizontalPadding
+
+        availableSpaceRect.set(0, 0, textLimit, maxTextHeight)
+    }
+
+    private fun suggestedSizeFits(
+        suggestedSizeInPx: Int,
+        precomputedData: PrecomputedLayoutData,
+    ): Boolean {
+        autoTextSizePaint.textSize = suggestedSizeInPx.toFloat()
+        val layout = createLayout(
+            precomputedData = precomputedData,
+            paint = autoTextSizePaint,
+            width = availableSpaceRect.width(),
+            ellipsize = TruncateAt.END
+        )
+        return layout.getEllipsisCount(layout.lineCount - 1) <= 0 && layout.height <= availableSpaceRect.height()
+    }
 
     /**
      * Обновить признак [isFadeEdgeVisible] о необходимости отрисовки затеменения для текста,
@@ -1902,7 +2061,7 @@ class TextLayout private constructor(
      * @property lineLastSymbolIndex индекс последнего символа в строке.
      * @property hasMetricAffectingSpan проверка наличия в тексте спанов влияющих на ширину строки.
      */
-    private class PrecomputedLayoutData(
+    private data class PrecomputedLayoutData(
         val availableWidth: Int?,
         val precomputedTextWidth: Int,
         val lineLastSymbolIndex: Int? = null,
@@ -1958,7 +2117,7 @@ typealias TextLayoutConfig = TextLayoutParams.() -> Unit
  * Мод активации отладочных границ [TextLayout].
  * При включении дополнительно будут нарисованы границы вокруг [TextLayout], а также внутренние отступы.
  */
-private const val isInspectMode = false
+private const val isInspectMode = true
 private const val ONE_PX = 1
 private const val SINGLE_LINE = 1
 private const val DEFAULT_SPACING_ADD = 0f

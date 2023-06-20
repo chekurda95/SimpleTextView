@@ -78,6 +78,18 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
                 text = transformedText ?: value ?: StringUtils.EMPTY
             }
         }
+    override var autoSizeTextType: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var autoSizeMaxTextSize: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var autoSizeMinTextSize: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var autoSizeStepGranularity: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
 
     @get:Px
     override var textSize: Float

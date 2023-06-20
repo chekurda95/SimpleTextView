@@ -201,6 +201,36 @@ interface SbisTextViewApi {
     val layout: Layout
 
     /**
+     * Установить тип автоматического определения размера текста.
+     * [AUTO_SIZE_TEXT_TYPE_NONE] - дефолтное значение, автоматическое определение размера текста выключено.
+     * [AUTO_SIZE_TEXT_TYPE_UNIFORM] - включить автоматическое определение размера текста.
+     */
+    @get:AutoSizeTextType
+    var autoSizeTextType: Int
+
+    /**
+     * Установить максимальное знание размера текста для режима автоматического определения размера текста.
+     * @see autoSizeTextType
+     */
+    @get:Px
+    var autoSizeMaxTextSize: Int
+
+    /**
+     * Установить минимальное знание размера текста для режима автоматического определения размера текста.
+     * @see autoSizeTextType
+     */
+    @get:Px
+    var autoSizeMinTextSize: Int
+
+    /**
+     * Установить шаг перебора интервала от минимального до максимального размера текста
+     * для режима автоматического определения размера текста.
+     * @see autoSizeTextType
+     */
+    @get:Px
+    var autoSizeStepGranularity: Int
+
+    /**
      * Установить текст по строковому ресурсу.
      * @see TextView.setText
      */
