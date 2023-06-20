@@ -1136,7 +1136,7 @@ class TextLayout private constructor(
 
     private fun createLayoutInternal(precomputedData: PrecomputedLayoutData): Layout =
         createLayout(precomputedData)
-            .takeIf { !isAutoSizeRequired(it) }
+            .takeIf { !isAutoSizeRequired(it, precomputedData) }
             ?: getAutoSizedLayout(precomputedData)
 
     /**
@@ -1172,11 +1172,16 @@ class TextLayout private constructor(
             boringLayout = this@TextLayout.boringLayout
         }
 
-    private fun isAutoSizeRequired(layout: Layout): Boolean {
+    private fun isAutoSizeRequired(layout: Layout, precomputedData: PrecomputedLayoutData): Boolean {
         val needCheckAutoSize = isAutoTextSizeMode && layout.text.isNotEmpty() && layout.width > 0
-        return needCheckAutoSize && (isAutoSizeForAvailableSpace ||
+        return if (needCheckAutoSize) {
+            updateAvailableTextSpaceRect(precomputedData)
+            isAutoSizeForAvailableSpace ||
                 layout.getEllipsisCount(layout.lineCount - 1) > 0 ||
-                layout.height > availableSpaceRect.height())
+                layout.height > availableSpaceRect.height()
+        } else {
+            false
+        }
     }
 
     private fun getAutoSizedLayout(precomputedData: PrecomputedLayoutData): Layout {
@@ -1200,7 +1205,6 @@ class TextLayout private constructor(
     }
 
     private fun findLargestFitsLayout(precomputedData: PrecomputedLayoutData): Layout {
-        updateAvailableTextSpaceRect(precomputedData)
         val autoPrecomputedData = precomputedData.copy(
             lineLastSymbolIndex = null,
             isBoring = null
