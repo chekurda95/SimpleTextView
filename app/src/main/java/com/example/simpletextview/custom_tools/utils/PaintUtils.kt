@@ -25,10 +25,6 @@ class SimplePaint(config: (SimplePaint.() -> Unit)? = null) : Paint(ANTI_ALIAS_F
  */
 class SimpleTextPaint(config: (SimpleTextPaint.() -> Unit)? = null) : TextPaint(ANTI_ALIAS_FLAG) {
 
-    init {
-        config?.invoke(this)
-    }
-
     /**
      * Установить максимальный размер текста в пикселях.
      * Использовать для явного ограничения размера при использовании значений sp.
@@ -37,6 +33,7 @@ class SimpleTextPaint(config: (SimpleTextPaint.() -> Unit)? = null) : TextPaint(
     var maxTextSize: Int = Int.MAX_VALUE
         set(value) {
             field = value.coerceAtLeast(0)
+            textSize = textSize.coerceAtMost(field.toFloat())
         }
 
     /**
@@ -47,10 +44,16 @@ class SimpleTextPaint(config: (SimpleTextPaint.() -> Unit)? = null) : TextPaint(
     var minTextSize: Int = 0
         set(value) {
             field = value.coerceAtLeast(0)
+            textSize = textSize.coerceAtLeast(field.toFloat())
         }
 
+    init {
+        config?.invoke(this)
+    }
+
     override fun setTextSize(textSize: Float) {
-        val limitedTextSize = textSize.coerceAtLeast(minTextSize.toFloat())
+        val limitedTextSize = textSize
+            .coerceAtLeast(minTextSize.toFloat())
             .coerceAtMost(maxTextSize.toFloat())
         super.setTextSize(limitedTextSize)
     }
