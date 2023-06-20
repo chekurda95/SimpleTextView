@@ -76,17 +76,15 @@
             <enum name="none" value="0"/>
             <enum name="horizontal" value="1"/>
         </attr>
-        <attr name="android:autoSizeTextType" format="enum">
+        <attr name="SbisTextView_autoSizeTextType" format="enum">
             <enum name="none" value="0"/>
             <enum name="uniform" value="1"/>
         </attr>
-        <attr name="android:autoSizeMaxTextSize" format="dimension"/>
-        <attr name="android:autoSizeMinTextSize" format="dimension"/>
-        <attr name="android:autoSizeStepGranularity" format="dimension"/>
-
-        <!-- WIP https://online.sbis.ru/opendoc.html?guid=980c4a35-416f-48cf-a65c-caa120802fed&client=3
-        android:minTextSize
-        android:maxTextSize -->
+        <attr name="SbisTextView_autoSizeMaxTextSize" format="dimension"/>
+        <attr name="SbisTextView_autoSizeMinTextSize" format="dimension"/>
+        <attr name="SbisTextView_autoSizeStepGranularity" format="dimension"/>
+        <attr name="SbisTextView_minTextSize" format="dimension"/>
+        <attr name="SbisTextView_maxTextSize" format="dimension"/>
 
     </declare-styleable>
 </resources>

@@ -90,6 +90,12 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
     override var autoSizeStepGranularity: Int
         get() = TODO("Not yet implemented")
         set(value) {}
+    override var maxTextSize: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
+    override var minTextSize: Int
+        get() = TODO("Not yet implemented")
+        set(value) {}
 
     @get:Px
     override var textSize: Float

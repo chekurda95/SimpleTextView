@@ -33,6 +33,7 @@ import com.example.simpletextview.R
 import com.example.simpletextview.custom_tools.TextLayout
 import com.example.simpletextview.custom_tools.TextLayoutConfig
 import com.example.simpletextview.custom_tools.utils.MeasureSpecUtils.measureDirection
+import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
@@ -110,6 +111,9 @@ open class SbisTextView : View, SbisTextViewApi {
     private val descriptionProvider: DescriptionProvider =
         if (BuildConfig.DEBUG) DebugDescriptionProvider()
         else ReleaseDescriptionProvider()
+
+    private val simpleTextPaint: SimpleTextPaint
+        get() = textLayout.textPaint as SimpleTextPaint
 
     override var text: CharSequence?
         get() = textLayout.text
@@ -301,14 +305,14 @@ open class SbisTextView : View, SbisTextViewApi {
             configure { hyphenationFrequency = value.coerceAtLeast(0) }
         }
 
-    @get:AutoSizeTextType
+    @AutoSizeTextType
     override var autoSizeTextType: Int = AUTO_SIZE_TEXT_TYPE_NONE
         set(value) {
             field = value
             textLayout.isAutoTextSizeMode = value != AUTO_SIZE_TEXT_TYPE_NONE
         }
 
-    @get:Px
+    @Px
     override var autoSizeMaxTextSize: Int = 300
         get() = textLayout.autoSizeMaxTextSize
         set(value) {
@@ -317,7 +321,7 @@ open class SbisTextView : View, SbisTextViewApi {
             if (isChanged) safeRequestLayout()
         }
 
-    @get:Px
+    @Px
     override var autoSizeMinTextSize: Int = 1
         get() = textLayout.autoSizeMinTextSize
         set(value) {
@@ -326,13 +330,31 @@ open class SbisTextView : View, SbisTextViewApi {
             if (isChanged) safeRequestLayout()
         }
 
-    @get:Px
+    @Px
     override var autoSizeStepGranularity: Int = 1
         get() = textLayout.autoSizeStepGranularity
         set(value) {
             val isChanged = field != value
             textLayout.autoSizeStepGranularity = value
             if (isChanged) safeRequestLayout()
+        }
+
+    @get:Px
+    override var maxTextSize: Int
+        get() = simpleTextPaint.maxTextSize
+        set(value) {
+            val textSize = simpleTextPaint.textSize
+            simpleTextPaint.maxTextSize = value
+            if (textSize != simpleTextPaint.textSize) safeRequestLayout()
+        }
+
+    @get:Px
+    override var minTextSize: Int
+        get() = simpleTextPaint.minTextSize
+        set(value) {
+            val textSize = simpleTextPaint.textSize
+            simpleTextPaint.minTextSize = value
+            if (textSize != simpleTextPaint.textSize) safeRequestLayout()
         }
 
     override val layout: Layout
@@ -744,19 +766,23 @@ open class SbisTextView : View, SbisTextViewApi {
                 FADING_EDGE_NONE
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
-            val autoSizeTextType = getInt(R.styleable.SbisTextView_android_autoSizeTextType, AUTO_SIZE_TEXT_TYPE_NONE)
+            val autoSizeTextType = getInt(R.styleable.SbisTextView_SbisTextView_autoSizeTextType, AUTO_SIZE_TEXT_TYPE_NONE)
             val autoSizeMaxTextSize = getDimensionPixelSize(
-                R.styleable.SbisTextView_android_autoSizeMaxTextSize,
+                R.styleable.SbisTextView_SbisTextView_autoSizeMaxTextSize,
                 autoSizeMaxTextSize
             )
             val autoSizeMinTextSize = getDimensionPixelSize(
-                R.styleable.SbisTextView_android_autoSizeMinTextSize,
+                R.styleable.SbisTextView_SbisTextView_autoSizeMinTextSize,
                 autoSizeMinTextSize
             )
             val autoSizeStepGranularity = getDimensionPixelSize(
-                R.styleable.SbisTextView_android_autoSizeStepGranularity,
+                R.styleable.SbisTextView_SbisTextView_autoSizeStepGranularity,
                 autoSizeStepGranularity
             )
+            val maxTextSize = getDimensionPixelSize(R.styleable.SbisTextView_SbisTextView_maxTextSize, NO_RESOURCE)
+                .takeIf { it != NO_RESOURCE }
+            val minTextSize = getDimensionPixelSize(R.styleable.SbisTextView_SbisTextView_minTextSize, NO_RESOURCE)
+                .takeIf { it != NO_RESOURCE }
 
             textLayout.configure {
                 this.text = text
@@ -792,6 +818,8 @@ open class SbisTextView : View, SbisTextViewApi {
                 if (maxWidth != null) it.maxWidth = maxWidth
                 if (minHeight != null) it.minHeight = minHeight
                 if (maxHeight != null) it.maxHeight = maxHeight
+                if (maxTextSize != null) it.maxTextSize = maxTextSize
+                if (minTextSize != null) it.minTextSize = minTextSize
             }
         }
     }

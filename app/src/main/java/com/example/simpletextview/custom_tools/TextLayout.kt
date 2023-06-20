@@ -618,13 +618,13 @@ class TextLayout private constructor(
      * Использовать, когда при включении режима [isAutoTextSizeMode] необходимо ограничение по высоте
      * для автоопределения размера текста и явно не указана максимальная высота разметки [TextLayoutParams.maxHeight].
      */
-    @get:Px
+    @Px
     var autoSizeAvailableHeight: Int = Int.MAX_VALUE
 
     /**
      * Установить максимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
-    @get:Px
+    @Px
     var autoSizeMaxTextSize: Int = 300
         set(value) {
             if (field != value) autoSizesCalculated = false
@@ -634,7 +634,7 @@ class TextLayout private constructor(
     /**
      * Установить минимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
-    @get:Px
+    @Px
     var autoSizeMinTextSize: Int = 1
         set(value) {
             if (field != value) autoSizesCalculated = false
@@ -645,7 +645,7 @@ class TextLayout private constructor(
      * Установить шаг перебора интервала от минимального до максимального размера текста
      * для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
-    @get:Px
+    @Px
     var autoSizeStepGranularity: Int = 1
         set(value) {
             if (field != value) autoSizesCalculated = false
@@ -2117,7 +2117,7 @@ typealias TextLayoutConfig = TextLayoutParams.() -> Unit
  * Мод активации отладочных границ [TextLayout].
  * При включении дополнительно будут нарисованы границы вокруг [TextLayout], а также внутренние отступы.
  */
-private const val isInspectMode = true
+private const val isInspectMode = false
 private const val ONE_PX = 1
 private const val SINGLE_LINE = 1
 private const val DEFAULT_SPACING_ADD = 0f

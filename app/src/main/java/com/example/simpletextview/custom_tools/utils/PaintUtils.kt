@@ -7,6 +7,7 @@ package com.example.simpletextview.custom_tools.utils
 
 import android.graphics.Paint
 import android.text.TextPaint
+import androidx.annotation.Px
 
 /**
  * Обычный anti-alias [Paint] с возможностью настройки прямо в конструкторе.
@@ -23,8 +24,35 @@ class SimplePaint(config: (SimplePaint.() -> Unit)? = null) : Paint(ANTI_ALIAS_F
  * Несколько упрощает синтаксис создания обычного TextPaint.
  */
 class SimpleTextPaint(config: (SimpleTextPaint.() -> Unit)? = null) : TextPaint(ANTI_ALIAS_FLAG) {
+
     init {
         config?.invoke(this)
+    }
+
+    /**
+     * Установить максимальный размер текста в пикселях.
+     * Использовать для явного ограничения размера при использовании значений sp.
+     */
+    @Px
+    var maxTextSize: Int = Int.MAX_VALUE
+        set(value) {
+            field = value.coerceAtLeast(0)
+        }
+
+    /**
+     * Установить минимальный размер текста в пикселях.
+     * Использовать для явного ограничения размера при использовании значений sp.
+     */
+    @Px
+    var minTextSize: Int = 0
+        set(value) {
+            field = value.coerceAtLeast(0)
+        }
+
+    override fun setTextSize(textSize: Float) {
+        val limitedTextSize = textSize.coerceAtLeast(minTextSize.toFloat())
+            .coerceAtMost(maxTextSize.toFloat())
+        super.setTextSize(limitedTextSize)
     }
 }
 
