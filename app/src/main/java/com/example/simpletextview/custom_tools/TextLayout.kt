@@ -19,6 +19,7 @@ import android.text.style.AbsoluteSizeSpan
 import android.text.style.MetricAffectingSpan
 import android.text.style.TypefaceSpan
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.HapticFeedbackConstants.LONG_PRESS
 import android.view.MotionEvent
 import android.view.MotionEvent.*
@@ -953,11 +954,12 @@ class TextLayout private constructor(
      */
     fun layout(@Px left: Int, @Px top: Int) {
         rect.set(left, top, left + width, top + height)
+        val topOffset = getTextTopOffset().toFloat()
         textRect.set(
             this.left + paddingStart.toFloat(),
-            this.top + paddingTop.toFloat(),
+            topOffset,
             this.right - paddingEnd.toFloat(),
-            this.bottom - paddingBottom.toFloat()
+            topOffset + state.minHeightByLines - verticalPadding
         )
         drawingLayout = _layout
 
@@ -979,6 +981,25 @@ class TextLayout private constructor(
                 drawFade(canvas) { drawLayout(it, layout) }
             } else {
                 drawLayout(canvas, layout)
+            }
+        }
+    }
+
+    private fun getTextTopOffset(): Int {
+        val layoutHeight = state.minHeightByLines
+        val gravity = params.verticalGravity and Gravity.VERTICAL_GRAVITY_MASK
+        return when {
+            height <= layoutHeight -> {
+                top + paddingTop
+            }
+            gravity == Gravity.BOTTOM -> {
+                bottom - paddingBottom - layoutHeight
+            }
+            gravity == Gravity.CENTER || gravity == Gravity.CENTER_VERTICAL -> {
+                top + paddingTop + (height - paddingTop - paddingBottom - layoutHeight) / 2
+            }
+            else -> {
+                top + paddingTop
             }
         }
     }
@@ -1326,6 +1347,7 @@ class TextLayout private constructor(
         var paint: TextPaint = SimpleTextPaint(),
         @Px var layoutWidth: Int? = null,
         var alignment: Alignment = Alignment.ALIGN_NORMAL,
+        var verticalGravity: Int = Gravity.NO_GRAVITY,
         var ellipsize: TruncateAt? = TruncateAt.END,
         var includeFontPad: Boolean = true,
         var spacingAdd: Float = DEFAULT_SPACING_ADD,

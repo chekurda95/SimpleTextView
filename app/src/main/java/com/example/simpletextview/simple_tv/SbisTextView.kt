@@ -241,7 +241,10 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             if (field == value) return
             field = value
-            textLayout.configure { alignment = getLayoutAlignment() }
+            textLayout.configure {
+                alignment = getLayoutAlignment()
+                verticalGravity = value
+            }
             if (!isGone && isAttachedToWindow) {
                 internalLayout()
                 invalidate()
