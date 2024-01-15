@@ -24,7 +24,7 @@ import com.example.simpletextview.custom_tools.utils.TextHighlights
  *
  * @author vv.chekurda
  */
-interface SbisTextViewApi : SbisTextViewCompoundApi {
+interface SbisTextViewApi : SbisTextViewCompoundDrawablesApi {
 
     /**
      * Установить текст.

@@ -8,7 +8,7 @@ import androidx.annotation.DrawableRes
  *
  * @author vv.chekurda
  */
-interface SbisTextViewCompoundApi {
+interface SbisTextViewCompoundDrawablesApi {
 
     /**
      * Устанавливает размер отступа между составными элементами drawable и текстом.
