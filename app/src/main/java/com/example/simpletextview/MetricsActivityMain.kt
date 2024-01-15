@@ -13,7 +13,10 @@ import com.example.simpletextview.metrics.MetricsLayoutCompat
 import com.example.simpletextview.metrics.MetricsLayoutSbis
 import com.example.simpletextview.metrics.Statistic
 
-class MetricsActivity2 : AppCompatActivity() {
+/**
+ * Основная активити сейчас
+ */
+class MetricsActivityMain : AppCompatActivity() {
 
     private lateinit var container: ViewGroup
 
