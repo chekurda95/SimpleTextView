@@ -312,6 +312,12 @@ interface SbisTextViewApi {
      * @see Layout.getEllipsisCount
      */
     fun getEllipsisCount(line: Int): Int
+
+    /**
+     * Получить цвет выделения.
+     * @see TextView.getHighlightColor
+     */
+    fun getHighlightColor(): Int
 }
 
 private const val DEFAULT_SPACING_ADD = 0f

@@ -8,6 +8,10 @@ import android.text.TextDirectionHeuristic
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.TextUtils
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.DEFAULT_SPACING_ADD
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.DEFAULT_SPACING_MULTI
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.RTL_SYMBOLS_CHECK_COUNT_LIMIT
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.SINGLE_LINE
 import java.lang.reflect.Constructor
 
 /**
@@ -19,7 +23,7 @@ import java.lang.reflect.Constructor
  *
  * @author vv.chekurda
  */
-object LayoutCreator {
+object LayoutCreator : LayoutFactory {
 
     private val hiddenStaticConstructor: Constructor<StaticLayout> by lazy(LazyThreadSafetyMode.NONE) {
         StaticLayout::class.java.getConstructor(
@@ -40,6 +44,46 @@ object LayoutCreator {
             isAccessible = true
         }
     }
+
+    override fun create(
+        text: CharSequence,
+        paint: TextPaint,
+        width: Int,
+        alignment: Layout.Alignment,
+        textLength: Int,
+        spacingMulti: Float,
+        spacingAdd: Float,
+        includeFontPad: Boolean,
+        maxLines: Int,
+        isSingleLine: Boolean,
+        breakStrategy: Int,
+        hyphenationFrequency: Int,
+        ellipsize: TextUtils.TruncateAt?,
+        textDir: TextDirectionHeuristic,
+        boring: BoringLayout.Metrics?,
+        boringLayout: BoringLayout?,
+        leftIndents: IntArray?,
+        rightIndents: IntArray?
+    ): Layout = createLayout(
+        text,
+        paint,
+        width,
+        alignment,
+        textLength,
+        spacingMulti,
+        spacingAdd,
+        includeFontPad,
+        maxLines,
+        isSingleLine,
+        breakStrategy,
+        hyphenationFrequency,
+        ellipsize,
+        textDir,
+        boring,
+        boringLayout,
+        leftIndents,
+        rightIndents
+    )
 
     /**
      * Создать текстовую разметку [Layout].
@@ -77,9 +121,17 @@ object LayoutCreator {
         ellipsize: TextUtils.TruncateAt? = null,
         textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR,
         boring: BoringLayout.Metrics? = null,
-        boringLayout: BoringLayout? = null
+        boringLayout: BoringLayout? = null,
+        leftIndents: IntArray? = null,
+        rightIndents: IntArray? = null
     ): Layout {
-        val checkedBoring = checkBoring(boring, width, maxLines, isSingleLine, ellipsize)
+        val checkedBoring = checkBoring(
+            boring,
+            width,
+            maxLines,
+            isSingleLine,
+            ellipsize
+        )
         val includeFontPadding = if (checkedBoring != null ||
             !textDir.isRtl(text, 0, textLength.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT))
         ) {
@@ -114,7 +166,9 @@ object LayoutCreator {
                 breakStrategy = breakStrategy,
                 hyphenationFrequency = hyphenationFrequency,
                 ellipsize = ellipsize,
-                textDir = textDir
+                textDir = textDir,
+                leftIndents = leftIndents,
+                rightIndents = rightIndents
             )
         }
     }
@@ -161,7 +215,7 @@ object LayoutCreator {
         }
     }
 
-    private fun createStaticLayout(
+    fun createStaticLayout(
         text: CharSequence,
         paint: TextPaint,
         width: Int,
@@ -174,7 +228,9 @@ object LayoutCreator {
         breakStrategy: Int = 0,
         hyphenationFrequency: Int = 0,
         ellipsize: TextUtils.TruncateAt? = null,
-        textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR
+        textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR,
+        leftIndents: IntArray? = null,
+        rightIndents: IntArray? = null
     ): StaticLayout =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             StaticLayout.Builder.obtain(text, 0, textLength, paint, width)
@@ -189,6 +245,7 @@ object LayoutCreator {
                         setEllipsizedWidth(width)
                     }
                 }
+                .setIndents(leftIndents, rightIndents)
                 .setTextDirection(textDir)
                 .build()
         } else {
@@ -219,9 +276,5 @@ object LayoutCreator {
         boring?.takeIf {
             isSingleLine || boring.width <= width || (ellipsize != null && maxLines == SINGLE_LINE)
         }
-}
 
-private const val DEFAULT_SPACING_ADD = 0f
-private const val DEFAULT_SPACING_MULTI = 1f
-private const val SINGLE_LINE = 1
-internal const val RTL_SYMBOLS_CHECK_COUNT_LIMIT = 10
+}

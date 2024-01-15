@@ -37,6 +37,7 @@ import com.example.simpletextview.custom_tools.utils.SimpleTextPaint
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.getTextWidth
 import com.example.simpletextview.custom_tools.utils.safeRequestLayout
+import com.example.simpletextview.custom_tools.utils.sp
 import org.apache.commons.lang3.StringUtils.EMPTY
 import org.json.JSONObject
 
@@ -61,7 +62,7 @@ open class SbisTextView : View, SbisTextViewApi {
         context: Context,
         attrs: AttributeSet? = null,
         @AttrRes defStyleAttr: Int = R.attr.sbisTextViewTheme,
-        @StyleRes defStyleRes: Int = R.style.SbisTextViewDefaultTheme
+        @StyleRes defStyleRes: Int = 0
     ) : super(context, attrs, defStyleAttr, defStyleRes) {
         obtainAttrs(attrs, defStyleAttr, defStyleRes)
     }
@@ -101,12 +102,14 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     private var textLayout: TextLayout = TextLayout {
+        paint.textSize = sp(DEFAULT_TEXT_SIZE_SP).toFloat()
         maxLines = DEFAULT_MAX_LINES
         minLines = DEFAULT_MIN_LINES
         ellipsize = null
     }.apply {
         makeClickable(this@SbisTextView)
     }
+    private var isInitialized: Boolean? = true
     private val layoutTouchRect = Rect()
     private val descriptionProvider: DescriptionProvider =
         if (BuildConfig.DEBUG) DebugDescriptionProvider()
@@ -206,7 +209,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value?.coerceAtLeast(0) ?: 0
             configure {
-                minWidth = field?.let { it - paddingStart - paddingEnd}
+                minWidth = field?.let { it - paddingStart - paddingEnd }
                     ?.coerceAtLeast(0)
                     ?: 0
             }
@@ -315,29 +318,29 @@ open class SbisTextView : View, SbisTextViewApi {
             textLayout.isAutoTextSizeMode = value != AUTO_SIZE_TEXT_TYPE_NONE
         }
 
-    @Px
-    override var autoSizeMaxTextSize: Int = 300
+    @get:Px
+    override var autoSizeMaxTextSize: Int
         get() = textLayout.autoSizeMaxTextSize
         set(value) {
-            val isChanged = field != value
+            val isChanged = textLayout.autoSizeMaxTextSize != value
             textLayout.autoSizeMaxTextSize = value
             if (isChanged) safeRequestLayout()
         }
 
-    @Px
-    override var autoSizeMinTextSize: Int = 1
+    @get:Px
+    override var autoSizeMinTextSize: Int
         get() = textLayout.autoSizeMinTextSize
         set(value) {
-            val isChanged = field != value
+            val isChanged = textLayout.autoSizeMinTextSize != value
             textLayout.autoSizeMinTextSize = value
             if (isChanged) safeRequestLayout()
         }
 
-    @Px
-    override var autoSizeStepGranularity: Int = 1
+    @get:Px
+    override var autoSizeStepGranularity: Int
         get() = textLayout.autoSizeStepGranularity
         set(value) {
-            val isChanged = field != value
+            val isChanged = textLayout.autoSizeStepGranularity != value
             textLayout.autoSizeStepGranularity = value
             if (isChanged) safeRequestLayout()
         }
@@ -492,6 +495,9 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getEllipsisCount(line: Int): Int =
         textLayout.getEllipsisCount(line)
 
+    override fun getHighlightColor(): Int =
+        textLayout.highlights?.highlightColor ?: -1
+
     override fun setTextAlignment(textAlignment: Int) {
         super.setTextAlignment(textAlignment)
         configure { alignment = getLayoutAlignment() }
@@ -523,6 +529,13 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun isPressed(): Boolean =
         textLayout.isPressed || super.isPressed()
 
+    override fun dispatchSetActivated(activated: Boolean) {
+        textLayout.isActivated = activated
+    }
+
+    override fun isActivated(): Boolean =
+        textLayout.isActivated || super.isActivated()
+
     override fun isHorizontalFadingEdgeEnabled(): Boolean =
         textLayout.requiresFadingEdge
 
@@ -543,7 +556,7 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun onRtlPropertiesChanged(layoutDirection: Int) {
-        super.onRtlPropertiesChanged(layoutDirection)
+        if (isInitialized != true) return
         textLayout.onRtlPropertiesChanged(layoutDirection, textDirection)
     }
 
@@ -641,9 +654,10 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun configureLayoutForAutoSize(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         textLayout.isAutoSizeForAvailableSpace = MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY &&
                 MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY
+        val verticalPadding = paddingTop + paddingBottom
         val availableLayoutHeight = measureDirection(heightMeasureSpec) {
             Int.MAX_VALUE.coerceAtMost(maxHeight ?: Int.MAX_VALUE)
-        } - paddingTop - paddingBottom
+        } - verticalPadding
         textLayout.autoSizeAvailableHeight = availableLayoutHeight.coerceAtLeast(0)
     }
 
@@ -655,6 +669,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         internalLayout()
+        invalidate()
     }
 
     private fun internalLayout() {
@@ -769,7 +784,11 @@ open class SbisTextView : View, SbisTextViewApi {
                 FADING_EDGE_NONE
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
-            val autoSizeTextType = getInt(R.styleable.SbisTextView_SbisTextView_autoSizeTextType, AUTO_SIZE_TEXT_TYPE_NONE)
+
+            val autoSizeTextType = getInt(
+                R.styleable.SbisTextView_SbisTextView_autoSizeTextType,
+                AUTO_SIZE_TEXT_TYPE_NONE
+            )
             val autoSizeMaxTextSize = getDimensionPixelSize(
                 R.styleable.SbisTextView_SbisTextView_autoSizeMaxTextSize,
                 autoSizeMaxTextSize
@@ -782,6 +801,7 @@ open class SbisTextView : View, SbisTextViewApi {
                 R.styleable.SbisTextView_SbisTextView_autoSizeStepGranularity,
                 autoSizeStepGranularity
             )
+
             val maxTextSize = getDimensionPixelSize(R.styleable.SbisTextView_SbisTextView_maxTextSize, NO_RESOURCE)
                 .takeIf { it != NO_RESOURCE }
             val minTextSize = getDimensionPixelSize(R.styleable.SbisTextView_SbisTextView_minTextSize, NO_RESOURCE)
@@ -790,7 +810,7 @@ open class SbisTextView : View, SbisTextViewApi {
             textLayout.configure {
                 this.text = text
                 this.paint.also { paint ->
-                    paint.textSize = textSize?.toFloat() ?: 0f
+                    paint.textSize = (textSize ?: sp(DEFAULT_TEXT_SIZE_SP)).toFloat()
                     paint.color = color
                     paint.typeface = typeface
                 }
@@ -896,8 +916,13 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     @SuppressLint("GetContentDescriptionOverride")
-    override fun getContentDescription(): CharSequence =
-        descriptionProvider.getContentDescription()
+    override fun getContentDescription(): CharSequence {
+        val contentDescription = super.getContentDescription()
+        if (contentDescription.isNullOrBlank()) {
+            return descriptionProvider.getContentDescription()
+        }
+        return contentDescription
+    }
 
     private inner class ReleaseDescriptionProvider : DescriptionProvider {
         override fun getContentDescription(): CharSequence =
@@ -954,6 +979,7 @@ private const val FADING_EDGE_NONE = 0x00000000
 private const val FADING_EDGE_HORIZONTAL = 0x00001000
 private const val ITALIC_STYLE_PAINT_SKEW = -0.25f
 private const val PERFORM_CLICK_RUNNABLE_NAME = "PerformClick"
+private const val DEFAULT_TEXT_SIZE_SP = 14
 
 private const val DESCRIPTION_TEXT_KEY = "text"
 private const val DESCRIPTION_TEXT_SIZE_KEY = "text_size"

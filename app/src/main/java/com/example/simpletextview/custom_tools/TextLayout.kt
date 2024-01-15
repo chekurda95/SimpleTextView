@@ -47,7 +47,9 @@ import com.example.simpletextview.custom_tools.utils.layout.LayoutConfigurator
 import org.apache.commons.lang3.StringUtils
 import com.example.simpletextview.custom_tools.TextLayout.*
 import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLayoutByStyle
-import com.example.simpletextview.custom_tools.utils.layout.RTL_SYMBOLS_CHECK_COUNT_LIMIT
+import com.example.simpletextview.custom_tools.utils.layout.LayoutCreator
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory
+import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.RTL_SYMBOLS_CHECK_COUNT_LIMIT
 import kotlin.math.roundToInt
 
 /**
@@ -353,7 +355,9 @@ class TextLayout private constructor(
      * Имеет ленивую инициализацию в случае изменения параметров.
      */
     val layout: Layout
-        get() {
+        get() { // TODO не очевидно, что метод может внутри что-то пересчитывать.
+            // TODO предлагаю дать доступ к _layout как optional и сделать отдельный метод типа requireLayout()
+            // TODO т.к не во всех случаях требуется пересчет, иногда нужно просто посмотреть что лежит в layout
             val lastLayout = _layout
             return if (!isLayoutChanged && lastLayout != null) {
                 lastLayout
@@ -439,6 +443,18 @@ class TextLayout private constructor(
      */
     val maxLength: Int
         get() = params.maxLength
+
+    /**
+     * Массив отступов строк слева в пикселях. Индекс в массиве соответствует номеру строки.
+     */
+    val leftIndents: IntArray?
+        get() = params.indents?.left
+
+    /**
+     * Массив отступов строк справа в пикселях. Индекс в массиве соответствует номеру строки.
+     */
+    val rightIndents: IntArray?
+        get() = params.indents?.right
 
     /**
      * Левая позиция разметки, установленная в [TextLayout.layout].
@@ -550,6 +566,8 @@ class TextLayout private constructor(
             paddingTop + layout.getLineBaseline(0)
         }
 
+    var layoutFactory: LayoutFactory = LayoutCreator
+
     /**
      * Прозрачность текста разметки.
      */
@@ -626,7 +644,7 @@ class TextLayout private constructor(
      * Установить максимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
     @Px
-    var autoSizeMaxTextSize: Int = 300
+    var autoSizeMaxTextSize: Int = DEFAULT_AUTO_SIZE_MAX_TEXT_SIZE
         set(value) {
             if (field != value) autoSizesCalculated = false
             field = value
@@ -636,7 +654,7 @@ class TextLayout private constructor(
      * Установить минимальный размер текста для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
     @Px
-    var autoSizeMinTextSize: Int = 1
+    var autoSizeMinTextSize: Int = DEFAULT_AUTO_SIZE_MIN_TEXT_SIZE
         set(value) {
             if (field != value) autoSizesCalculated = false
             field = value
@@ -647,7 +665,7 @@ class TextLayout private constructor(
      * для режима автоматического определения размера текста [isAutoTextSizeMode].
      */
     @Px
-    var autoSizeStepGranularity: Int = 1
+    var autoSizeStepGranularity: Int = DEFAULT_AUTO_SIZE_STEP_GRANULARITY
         set(value) {
             if (field != value) autoSizesCalculated = false
             field = value
@@ -698,6 +716,18 @@ class TextLayout private constructor(
         }
 
     /**
+     * Установить/получить состояние активации текстовой разметки.
+     *
+     * @see colorStateList
+     */
+    var isActivated: Boolean = false
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) drawableStateHelper.setActivated(value)
+        }
+
+    /**
      * Установить/получить состояние выбранности текстовой разметки.
      *
      * @see colorStateList
@@ -740,6 +770,12 @@ class TextLayout private constructor(
         get() = params.hyphenationFrequency
 
     /**
+     * @see [TextLayoutParams.highlights]
+     */
+    val highlights: TextHighlights?
+        get() = params.highlights
+
+    /**
      * Получить ожидаемую ширину разметки для однострочного текста [text] без создания [StaticLayout].
      * По-умолчанию используется текст из параметров рамзетки [TextLayoutParams.text].
      */
@@ -749,7 +785,7 @@ class TextLayout private constructor(
 
         val textWidth = if (resultText is Spanned) {
             with(resultText) {
-                /** Можно доработать для [RelativeSizeSpan] и когда текст состоит из спанов частично */
+                // Можно доработать для RelativeSizeSpan и когда текст состоит из спанов частично
                 val sizeSpans = getSpans(0, length, AbsoluteSizeSpan::class.java)
                 if (sizeSpans.isEmpty()) {
                     params.paint.getTextWidth(resultText)
@@ -758,11 +794,9 @@ class TextLayout private constructor(
                     sizeSpans.forEach {
                         val start = getSpanStart(it)
                         val end = getSpanEnd(it)
-                        val fontSpan = getSpans(start, end, TypefaceSpan::class.java).firstOrNull()
                         spansWidth += TextPaint(params.paint)
                             .apply {
                                 textSize = it.size.toFloat()
-                                //fontSpan?.let { typeface = fontSpan.mTypeface }
                             }
                             .getTextWidth(this, start, end)
                     }
@@ -883,7 +917,7 @@ class TextLayout private constructor(
                     oldLetterSpacing != params.paint.letterSpacing ||
                     oldTypeface != params.paint.typeface
 
-        return (oldParams != params || isTextSizeChanged)
+        return isTextSizeChanged || oldParams != params // TODO унести весь код сравнения в кастомный equals TextLayoutParams
     }
 
     /**
@@ -989,7 +1023,7 @@ class TextLayout private constructor(
         val layoutHeight = state.minHeightByLines
         val gravity = params.verticalGravity and Gravity.VERTICAL_GRAVITY_MASK
         return when {
-            height <= layoutHeight -> {
+            layoutHeight >= height -> {
                 top + paddingTop
             }
             gravity == Gravity.BOTTOM -> {
@@ -1045,9 +1079,9 @@ class TextLayout private constructor(
     }
 
     /**
-     * Обработать событие изменения RTL свойств view представления.
+     * Обработать событие изменения RTL свойств view компонента.
      *
-     * Необходимо проксировать вызов из [View.onRtlPropertiesChanged],
+     * Необходимо вызовать из [View.onRtlPropertiesChanged],
      * передавая [View.getLayoutDirection] и [View.getTextDirection].
      */
     fun onRtlPropertiesChanged(layoutDirection: Int, textDirection: Int) {
@@ -1131,7 +1165,13 @@ class TextLayout private constructor(
      */
     fun getEllipsisCount(line: Int): Int =
         if (maxLines == SINGLE_LINE || isSingleLine) {
-            params.text.count() - layout.text.count()
+            val ellipsisStart = layout.getEllipsisStart(0)
+            val layoutTextLength = if (ellipsisStart > 0) {
+                ellipsisStart - 1
+            } else {
+                layout.text.count()
+            }
+            params.text.count() - layoutTextLength
         } else {
             layout.getEllipsisCount(line)
         }
@@ -1171,12 +1211,13 @@ class TextLayout private constructor(
     ): Layout =
         LayoutConfigurator.createLayout(
             text = state.configuredText,
-            paint = paint
+            paint = paint,
+            factory = layoutFactory
         ) {
             this.width = width
+            this.ellipsize = ellipsize
             maxHeight = state.layoutMaxHeight
             alignment = params.alignment
-            this.ellipsize = ellipsize
             includeFontPad = params.includeFontPad
             spacingAdd = params.spacingAdd
             spacingMulti = params.spacingMulti
@@ -1187,10 +1228,11 @@ class TextLayout private constructor(
             hyphenationFrequency = params.hyphenationFrequency
             fadingEdgeSize = if (fadingEdgeRule) fadeEdgeSize else 0
             textDir = this@TextLayout.textDir
-            hasMetricAffectingSpan = precomputedData.hasMetricAffectingSpan
+            hasAffectingSymbols = precomputedData.hasAffectingSymbols
             lineLastSymbolIndex = precomputedData.lineLastSymbolIndex
             boring = precomputedData.isBoring
             boringLayout = this@TextLayout.boringLayout
+            indents = params.indents
         }
 
     private fun isAutoSizeRequired(layout: Layout, precomputedData: PrecomputedLayoutData): Boolean {
@@ -1198,8 +1240,8 @@ class TextLayout private constructor(
         return if (needCheckAutoSize) {
             updateAvailableTextSpaceRect(precomputedData)
             isAutoSizeForAvailableSpace ||
-                layout.getEllipsisCount(layout.lineCount - 1) > 0 ||
-                layout.height > availableSpaceRect.height()
+                    layout.getEllipsisCount(layout.lineCount - 1) > 0 ||
+                    layout.height > availableSpaceRect.height()
         } else {
             false
         }
@@ -1207,14 +1249,18 @@ class TextLayout private constructor(
 
     private fun getAutoSizedLayout(precomputedData: PrecomputedLayoutData): Layout {
         setupAutoSizeText()
-        autoTextSizePaint.reset()
-        autoTextSizePaint.set(textPaint)
-        autoTextSizePaint.textSize = textPaint.textSize
         return findLargestFitsLayout(precomputedData)
     }
 
     private fun setupAutoSizeText() {
-        if (!isAutoTextSizeMode || autoSizesCalculated) return
+        autoTextSizePaint.apply {
+            reset()
+            set(textPaint)
+            textSize = textPaint.textSize
+        }
+
+        if (autoSizesCalculated) return
+
         val autoSizeValuesLength = (autoSizeMaxTextSize - autoSizeMinTextSize) / autoSizeStepGranularity
         autoSizeTextSizes = IntArray(autoSizeValuesLength)
         var sizeValue = autoSizeMinTextSize
@@ -1222,10 +1268,12 @@ class TextLayout private constructor(
             autoSizeTextSizes[index] = sizeValue
             sizeValue += autoSizeStepGranularity
         }
+
         autoSizesCalculated = true
     }
 
     private fun findLargestFitsLayout(precomputedData: PrecomputedLayoutData): Layout {
+        updateAvailableTextSpaceRect(precomputedData)
         val autoPrecomputedData = precomputedData.copy(
             lineLastSymbolIndex = null,
             isBoring = null
@@ -1267,7 +1315,7 @@ class TextLayout private constructor(
 
     private fun suggestedSizeFits(
         suggestedSizeInPx: Int,
-        precomputedData: PrecomputedLayoutData,
+        precomputedData: PrecomputedLayoutData
     ): Boolean {
         autoTextSizePaint.textSize = suggestedSizeInPx.toFloat()
         val layout = createLayout(
@@ -1313,6 +1361,7 @@ class TextLayout private constructor(
      * @property paint краска текста.
      * @property layoutWidth ширина разметки. Null -> WRAP_CONTENT.
      * @property alignment мод выравнивания текста.
+     * @property verticalGravity вертикальная гравитация текста относительно высоты [height].
      * @property ellipsize мод сокращения текста.
      * @property includeFontPad включить стандартные отступы шрифта.
      * @property spacingAdd величина межстрочного интервала.
@@ -1341,6 +1390,7 @@ class TextLayout private constructor(
      * После сокращения текста [StaticLayout] не всегда имеет точные размеры строго по границам текста ->
      * иногда остается лишнее пространство, которое может оказаться критичным для отображения.
      * [needHighWidthAccuracy] решает эту проблему, но накладывает дополнительные расходы на вычисления при перестроении разметки.
+     * @property indents отступы слева/справа в пикселях для любой строки разметки.
      */
     data class TextLayoutParams(
         var text: CharSequence = StringUtils.EMPTY,
@@ -1366,7 +1416,8 @@ class TextLayout private constructor(
         @Px var maxHeight: Int? = null,
         var breakStrategy: Int = 0,
         var hyphenationFrequency: Int = 0,
-        var needHighWidthAccuracy: Boolean = false
+        var needHighWidthAccuracy: Boolean = false,
+        var indents: TextLineIndents? = null
     ) {
 
         /**
@@ -1390,6 +1441,41 @@ class TextLayout private constructor(
         @Px val end: Int = 0,
         @Px val bottom: Int = 0
     )
+
+    /**
+     * Настройки отступов для каждой строки [StaticLayout].
+     * Индекс в массиве соответствует номеру строки.
+     *
+     * @see StaticLayout.Builder.setIndents
+     */
+    data class TextLineIndents(
+        var left: IntArray? = null,
+        var right: IntArray? = null
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as TextLineIndents
+
+            if (left != null) {
+                if (other.left == null) return false
+                if (!left.contentEquals(other.left)) return false
+            } else if (other.left != null) return false
+            if (right != null) {
+                if (other.right == null) return false
+                if (!right.contentEquals(other.right)) return false
+            } else if (other.right != null) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = left?.contentHashCode() ?: 0
+            result = 31 * result + (right?.contentHashCode() ?: 0)
+            return result
+        }
+    }
 
     /**
      * Вспомогатльная реализация для кэширования измерений в текущем состоянии [TextLayout].
@@ -1663,9 +1749,10 @@ class TextLayout private constructor(
                 val layoutWidth = params.layoutWidth
                 isPrecomputedActual &&
                         // Вычисляемая ширина текста для свободного пространста была применена к параметру layoutWidth.
-                        ((layoutWidth != null && it.precomputedTextWidth == layoutWidth - horizontalPadding) ||
-                                // Параметр layoutWidth не задавался, и вычисление ширины текста было без ограничений.
-                                (it.availableWidth == null && layoutWidth == null)
+                        (
+                                (layoutWidth != null && it.precomputedTextWidth == layoutWidth - horizontalPadding) ||
+                                        // Параметр layoutWidth не задавался, и вычисление ширины текста было без ограничений.
+                                        (it.availableWidth == null && layoutWidth == null)
                                 )
             } ?: refreshPrecomputedData(params.layoutWidth)
 
@@ -1674,18 +1761,29 @@ class TextLayout private constructor(
             val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
             val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
 
-            val hasMetricAffectingSpan = text is Spannable
-                && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty()
+            val spanLimit = text.length + 1
+            val byLayout = (text is Spannable &&
+                    text.nextSpanTransition(0, spanLimit, MetricAffectingSpan::class.java) != spanLimit) ||
+                    text.contains("\n")
 
             var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
 
-            if (!textDir.isRtl(text, 0, text.length.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT)) &&
-                (params.isSingleLine || text.isEmpty() ||
-                    (text !is Spannable &&
-                        (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE)))
-            ) {
-                isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
+            if (layoutFactory == LayoutCreator) { // TODO refactor (для прикладной фабрики не нужен расчет isBoring)
+                // TODO можно вынести расчет isBoring в лямбду и передавать эту лямбду в фабрику, если кому-то необходимо - вызовет по месту
+                // TODO лямбда может лежать внутри TextLayout и кешировать прошлые ее вызовы, отдавая результат сразу же при тех же значениях.
+                // TODO за счет этого из LayoutFactory можно будет убрать поля boring: BoringLayout.Metrics?, boringLayout: BoringLayout? и
+                // TODO вместо них добавить какой-нибудь интерфейс layoutDetector: LayoutDetector { fun isBoring(...) }
+                // TODO так же убрать логику checkBoring из класса LayoutCreator, использовать там layoutDetector
+                if (!byLayout &&
+                    !textDir.isRtl(text, 0, text.length.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT)) &&
+                    (params.isSingleLine || text.isEmpty() ||
+                            (text !is Spannable &&
+                                    (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
+                            ) || fadingEdgeRule
+                ) {
+                    isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
+                }
             }
             val precomputedTextWidth = when {
                 isBoring != null -> {
@@ -1693,16 +1791,16 @@ class TextLayout private constructor(
                     maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
                 }
                 availableWidth != null || params.maxWidth != null -> {
-                    val (width, lastIndex) = params.paint.getTextWidth(
+                    val (width, lastIndex) = params.paint.getTextWidth( // TODO не считать такие вещи для match_parent
                         text = text,
                         maxWidth = limitedTextWidth,
-                        byLayout = hasMetricAffectingSpan
+                        byLayout = byLayout
                     )
                     lineLastSymbolIndex = lastIndex
                     maxOf(width, minTextWidth)
                 }
                 else -> {
-                    val width = params.paint.getTextWidth(text = text, byLayout = hasMetricAffectingSpan)
+                    val width = params.paint.getTextWidth(text = text, byLayout = byLayout)
                     maxOf(minOf(width, limitedTextWidth), minTextWidth)
                 }
             }
@@ -1711,7 +1809,7 @@ class TextLayout private constructor(
                 availableWidth = availableWidth,
                 precomputedTextWidth = precomputedTextWidth,
                 lineLastSymbolIndex = lineLastSymbolIndex,
-                hasMetricAffectingSpan = hasMetricAffectingSpan,
+                hasAffectingSymbols = byLayout,
                 isBoring = isBoring
             ).also { data ->
                 precomputedData = data
@@ -1967,6 +2065,13 @@ class TextLayout private constructor(
         }
 
         /**
+         * Установить активное состояние текстовой разметки.
+         */
+        fun setActivated(activated: Boolean) {
+            updateDrawableState(android.R.attr.state_activated, activated)
+        }
+
+        /**
          * Обновить рисуемое состояние текстовой разметки.
          *
          * @param stateAttr атрибут нового состояния
@@ -2085,13 +2190,13 @@ class TextLayout private constructor(
      * @property availableWidth допустимая ширина, под которую производились вычисления.
      * @property precomputedTextWidth посчитанная ширина текста для построения [Layout].
      * @property lineLastSymbolIndex индекс последнего символа в строке.
-     * @property hasMetricAffectingSpan проверка наличия в тексте спанов влияющих на ширину строки.
+     * @property hasAffectingSymbols проверка наличия в тексте символов влияющих на ширину строки.
      */
     private data class PrecomputedLayoutData(
         val availableWidth: Int?,
         val precomputedTextWidth: Int,
         val lineLastSymbolIndex: Int? = null,
-        val hasMetricAffectingSpan: Boolean? = null,
+        val hasAffectingSymbols: Boolean? = null,
         val isBoring: BoringLayout.Metrics? = null
     )
 
@@ -2148,4 +2253,7 @@ private const val ONE_PX = 1
 private const val SINGLE_LINE = 1
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f
+private const val DEFAULT_AUTO_SIZE_MIN_TEXT_SIZE = 1
+private const val DEFAULT_AUTO_SIZE_MAX_TEXT_SIZE = 300
+private const val DEFAULT_AUTO_SIZE_STEP_GRANULARITY = 1
 internal const val BORING_LAYOUT_TEXT_LENGTH_LIMIT = 40

@@ -233,6 +233,10 @@ open class SbisTextViewOrigin : View, SbisTextViewApi {
             configure { hyphenationFrequency = value.coerceAtLeast(0) }
         }
 
+    override fun getHighlightColor(): Int {
+        TODO("Not yet implemented")
+    }
+
     override val layout: Layout
         get() = textLayout.layout
 

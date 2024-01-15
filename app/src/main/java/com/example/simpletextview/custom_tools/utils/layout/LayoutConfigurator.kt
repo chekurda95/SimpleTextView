@@ -12,11 +12,11 @@ import android.text.style.MetricAffectingSpan
 import android.widget.TextView
 import androidx.annotation.IntRange
 import androidx.annotation.Px
+import com.example.simpletextview.custom_tools.TextLayout
 import com.example.simpletextview.custom_tools.utils.HighlightSpan
 import com.example.simpletextview.custom_tools.utils.TextHighlights
 import com.example.simpletextview.custom_tools.utils.ellipsizeIndex
 import com.example.simpletextview.custom_tools.utils.getTextWidth
-import com.example.simpletextview.custom_tools.utils.hasSymbolEllipsize
 import com.example.simpletextview.custom_tools.utils.highlightText
 import com.example.simpletextview.custom_tools.utils.textHeight
 import kotlin.math.ceil
@@ -43,9 +43,14 @@ object LayoutConfigurator {
      * @param paint краска, которой будет рисоваться текст [text].
      * @param config конфигурация для создания [Layout].
      */
-    fun createLayout(text: CharSequence, paint: TextPaint, config: (Params.() -> Unit)? = null): Layout {
+    fun createLayout(
+        text: CharSequence,
+        paint: TextPaint,
+        factory: LayoutFactory = LayoutCreator,
+        config: (Params.() -> Unit)? = null
+    ): Layout {
         val params = Params().apply { config?.invoke(this) }
-        return createLayout(text, paint, params)
+        return createLayout(text, paint, factory, params)
     }
 
     /**
@@ -76,7 +81,7 @@ object LayoutConfigurator {
      * @property lineLastSymbolIndex (опционально, для оптимизации) индекс последнего символа
      * в строке из [TextPaint.getTextWidth].
      * Используется для отсечения текста, который будет находиться за пределами видимости.
-     * @property hasMetricAffectingSpan (опционально, для оптимизации) признак того, что в тексте есть спаны,
+     * @property hasAffectingSymbols (опционально, для оптимизации) признак того, что в тексте есть символы,
      * влияющие на ширину строки. В случае null при необходимости этот признак будет получен при построении.
      * @property textDir направление текста.
      */
@@ -97,21 +102,33 @@ object LayoutConfigurator {
         var hyphenationFrequency: Int = 0,
         var fadingEdgeSize: Int = 0,
         var lineLastSymbolIndex: Int? = null,
-        var hasMetricAffectingSpan: Boolean? = null,
-        var textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR
+        var hasAffectingSymbols: Boolean? = null,
+        var textDir: TextDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR,
+        var indents: TextLayout.TextLineIndents? = null
     )
 
     /**
      * Применить настройки [params] для создания [Layout].
      */
-    private fun createLayout(text: CharSequence, paint: TextPaint, params: Params): Layout {
+    private fun createLayout(text: CharSequence, paint: TextPaint, factory: LayoutFactory, params: Params): Layout {
         val resultText = text.highlightText(params.highlights)
-        val width = prepareWidth(text, paint, params.width, params.fadingEdgeSize, params.ellipsize, params.isSingleLine)
+        val width = prepareWidth(
+            text,
+            paint,
+            params.width,
+            params.fadingEdgeSize,
+            params.ellipsize,
+            params.isSingleLine
+        )
         val maxLines = prepareMaxLines(text, paint, params.isSingleLine, params.maxLines, params.maxHeight)
-        val hasMetricAffectingSpan = prepareHasMetricsAffectingSpans(text, params.hasMetricAffectingSpan, params.lineLastSymbolIndex)
-        val textLength = prepareTextLength(text, maxLines, hasMetricAffectingSpan, params.lineLastSymbolIndex)
+        val hasAffectingSymbols = prepareHasAffectingSymbols(
+            text,
+            params.hasAffectingSymbols,
+            params.lineLastSymbolIndex
+        )
+        val textLength = prepareTextLength(text, maxLines, hasAffectingSymbols, params.lineLastSymbolIndex)
 
-        return LayoutCreator.createLayout(
+        return factory.create(
             text = resultText,
             textLength = textLength,
             width = width,
@@ -127,7 +144,9 @@ object LayoutConfigurator {
             ellipsize = params.ellipsize,
             textDir = params.textDir,
             boring = params.boring,
-            boringLayout = params.boringLayout
+            boringLayout = params.boringLayout,
+            leftIndents = params.indents?.left,
+            rightIndents = params.indents?.right
         ).apply {
             tryHighlightEllipsize(resultText, params.highlights)
         }
@@ -149,11 +168,8 @@ object LayoutConfigurator {
             width >= 0 -> width
             else -> 0
         }.let { layoutWidth ->
-            val additional = if (isNeedFade(text, paint, layoutWidth, fadingEdgeSize, ellipsize, isSingleLine)) {
-                fadingEdgeSize
-            } else {
-                0
-            }
+            val isNeedFade = isNeedFade(text, paint, width, fadingEdgeSize, ellipsize, isSingleLine)
+            val additional = if (isNeedFade) fadingEdgeSize else 0
             layoutWidth + additional
         }
 
@@ -175,15 +191,17 @@ object LayoutConfigurator {
         return maxOf(calculatedMaxLines, SINGLE_LINE)
     }
 
-    private fun prepareHasMetricsAffectingSpans(
+    private fun prepareHasAffectingSymbols(
         text: CharSequence,
-        hasMetricAffectingSpan: Boolean?,
+        hasAffectingSymbols: Boolean?,
         lineLastSymbolIndex: Int?
     ): Boolean =
         when {
-            hasMetricAffectingSpan != null -> hasMetricAffectingSpan
+            hasAffectingSymbols != null -> hasAffectingSymbols
             lineLastSymbolIndex != null -> {
-                (text is Spannable && text.getSpans(0, text.length, MetricAffectingSpan::class.java).isNotEmpty())
+                val spanLimit = text.length + 1
+                (text is Spannable && text.nextSpanTransition(0, spanLimit, MetricAffectingSpan::class.java) != spanLimit)
+                        || text.contains("\n")
             }
             else -> false
         }
@@ -191,10 +209,10 @@ object LayoutConfigurator {
     private fun prepareTextLength(
         text: CharSequence,
         maxLines: Int,
-        hasMetricAffectingSpan: Boolean,
+        hasAffectingSymbols: Boolean,
         lineLastSymbolIndex: Int?
     ): Int =
-        if (lineLastSymbolIndex != null && !hasMetricAffectingSpan && maxLines != MAX_LINES_NO_LIMIT) {
+        if (lineLastSymbolIndex != null && !hasAffectingSymbols && maxLines != MAX_LINES_NO_LIMIT) {
             ceil(lineLastSymbolIndex * ONE_LINE_SYMBOLS_COUNT_RESERVE * maxLines).toInt().coerceAtMost(text.length)
         } else {
             text.length
@@ -203,14 +221,17 @@ object LayoutConfigurator {
     private fun isNeedFade(
         text: CharSequence,
         paint: TextPaint,
-        width: Int,
+        width: Int?,
         fadingEdgeSize: Int,
         ellipsize: TextUtils.TruncateAt?,
         isSingleLine: Boolean
     ): Boolean =
-        isSingleLine && ellipsize == null &&
-            fadingEdgeSize > 0 &&
-            TextUtils.ellipsize(text, paint, width.toFloat(), TextUtils.TruncateAt.END).hasSymbolEllipsize
+        fadingEdgeSize > 0 && width != null &&
+                isSingleLine && ellipsize == null &&
+                paint.getTextWidth(text, byLayout = text is Spannable).let { realTextWidth ->
+                    // Предотвращение fading edge для гуляющих пикселей различных разрешений экранов в сочетании с dp.
+                    realTextWidth - width > ONE_PX
+                }
 
     /**
      * Подсветка сокращения текста при наличии [highlights] за пределами сокращения.
@@ -236,11 +257,13 @@ object LayoutConfigurator {
 
     private fun getOneLineHeight(paint: TextPaint): Int {
         val textHeight = paint.textHeight
-        return if (textHeight > 0 || paint.textSize == 0f) {
-            textHeight
-        } else {
-            // Test case
-            LayoutCreator.createLayout(text = "1", paint = paint, width = 0).height
+        return when {
+            textHeight > 0 -> textHeight
+            paint.textSize <= 0f -> 1
+            else -> {
+                // Test case
+                LayoutCreator.createLayout(text = "1", paint = paint, width = 0).height
+            }
         }
     }
 }
@@ -250,3 +273,4 @@ private const val SINGLE_LINE = 1
 private const val ONE_LINE_SYMBOLS_COUNT_RESERVE = 1.2f
 private const val DEFAULT_SPACING_ADD = 0f
 private const val DEFAULT_SPACING_MULTI = 1f
+private const val ONE_PX = 1
