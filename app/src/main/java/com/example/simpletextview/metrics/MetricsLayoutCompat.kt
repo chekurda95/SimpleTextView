@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.view.children
 import com.example.simpletextview.R
 
 class MetricsLayoutCompat @JvmOverloads constructor(
@@ -20,6 +22,7 @@ class MetricsLayoutCompat @JvmOverloads constructor(
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
         Statistic.addCompatInflateTime(resultTime)
+        //additional(children.first { it is TextView } as TextView)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -36,5 +39,9 @@ class MetricsLayoutCompat @JvmOverloads constructor(
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
         Statistic.addCompatContainerLayoutTime(resultTime)
+    }
+
+    private fun additional(textView: TextView) {
+
     }
 }

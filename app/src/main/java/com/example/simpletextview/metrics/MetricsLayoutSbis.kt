@@ -25,6 +25,7 @@ class MetricsLayoutSbis @JvmOverloads constructor(
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
         Statistic.addSbisInflateTime(resultTime)
+        //additional(children.first { it is SbisTextView } as SbisTextView)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -41,5 +42,9 @@ class MetricsLayoutSbis @JvmOverloads constructor(
         val endTime = System.nanoTime()
         val resultTime = (endTime - startTime) / 1000
         Statistic.addSbisContainerLayoutTime(resultTime)
+    }
+
+    private fun additional(textView: SbisTextView) {
+
     }
 }
