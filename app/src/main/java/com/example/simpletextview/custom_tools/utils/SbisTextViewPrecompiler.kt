@@ -3,14 +3,12 @@ package com.example.simpletextview.custom_tools.utils
 import android.content.Context
 import com.example.simpletextview.R
 import com.example.simpletextview.simple_tv.SbisTextView
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 internal object SbisTextViewPrecompiler {
 
-    @OptIn(DelicateCoroutinesApi::class)
     fun precompile(appContext: Context) {
         GlobalScope.launch(Dispatchers.IO) {
             repeat(PRECOMPILE_COUNT) {
