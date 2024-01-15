@@ -381,6 +381,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value
             requiredDrawables.drawablePadding = value
+            requiredDrawables.onDrawablesChanged()
         }
 
     override val compoundPaddingStart: Int
@@ -869,6 +870,12 @@ open class SbisTextView : View, SbisTextViewApi {
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
 
+            val drawableStart = getDrawable(R.styleable.SbisTextView_android_drawableStart)
+            val drawableTop = getDrawable(R.styleable.SbisTextView_android_drawableTop)
+            val drawableEnd = getDrawable(R.styleable.SbisTextView_android_drawableEnd)
+            val drawableBottom = getDrawable(R.styleable.SbisTextView_android_drawableBottom)
+            val drawablePadding = getDimensionPixelSize(R.styleable.SbisTextView_android_drawablePadding, 0)
+
             val autoSizeTextType = getInt(
                 R.styleable.SbisTextView_SbisTextView_autoSizeTextType,
                 AUTO_SIZE_TEXT_TYPE_NONE
@@ -927,6 +934,21 @@ open class SbisTextView : View, SbisTextViewApi {
                 if (maxHeight != null) it.maxHeight = maxHeight
                 if (maxTextSize != null) it.maxTextSize = maxTextSize
                 if (minTextSize != null) it.minTextSize = minTextSize
+            }
+            if (drawablePadding > 0 ||
+                drawableStart != null ||
+                drawableEnd != null ||
+                drawableTop != null ||
+                drawableBottom != null
+            ) {
+                requiredDrawables.drawablePadding = drawablePadding
+                setCompoundDrawables(
+                    start = drawableStart,
+                    top = drawableTop,
+                    end = drawableEnd,
+                    bottom = drawableBottom,
+                    useIntrinsicBounds = true
+                )
             }
         }
     }
@@ -1061,7 +1083,9 @@ open class SbisTextView : View, SbisTextViewApi {
             }
 
         var drawableStart: Drawable? = null
+            private set
         var drawableEnd: Drawable? = null
+            private set
 
         var drawableSizeStart: Pair<Int, Int> = 0 to 0
         var drawableSizeTop: Pair<Int, Int> = 0 to 0
@@ -1073,10 +1097,6 @@ open class SbisTextView : View, SbisTextViewApi {
                 .coerceAtLeast(drawableSizeEnd.second)
 
         var drawablePadding: Int = 0
-            set(value) {
-                field = value
-                onDrawablesChanged()
-            }
 
         var paddingStart: Int = 0
         var paddingTop: Int = 0

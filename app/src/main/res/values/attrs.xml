@@ -76,6 +76,18 @@
             <enum name="none" value="0"/>
             <enum name="horizontal" value="1"/>
         </attr>
+
+        <!-- Drawable, который будет нарисован над текстом. -->
+        <attr name="android:drawableTop" format="reference|color" />
+        <!-- Drawable, который будет нарисован под текстом. -->
+        <attr name="android:drawableBottom" format="reference|color" />
+        <!-- Drawable, который будет нарисован слева от текста. -->
+        <attr name="android:drawableStart" format="reference|color" />
+        <!-- Drawable, который будет нарисован справа от текста. -->
+        <attr name="android:drawableEnd" format="reference|color" />
+        <!-- Отступы между Drawable и текстом. -->
+        <attr name="android:drawablePadding" format="dimension" />
+
         <attr name="SbisTextView_autoSizeTextType" format="enum">
             <enum name="none" value="0"/>
             <enum name="uniform" value="1"/>

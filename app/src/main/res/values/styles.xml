@@ -97,6 +97,7 @@
         <item name="android:visibility">visible</item>
         <item name="android:fadingEdge">horizontal</item>
         <item name="android:textAppearance">@style/SbisTextViewTextAppearance</item>
+        <item name="android:drawablePadding">5dp</item>
     </style>
 
     <style name="SbisTextViewTextAppearance">
