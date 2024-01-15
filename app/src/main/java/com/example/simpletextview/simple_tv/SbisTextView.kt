@@ -6,6 +6,7 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.text.Layout
 import android.text.Layout.Alignment
@@ -21,8 +22,13 @@ import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
-import androidx.annotation.*
+import androidx.annotation.AttrRes
+import androidx.annotation.ColorInt
+import androidx.annotation.IntDef
 import androidx.annotation.IntRange
+import androidx.annotation.Px
+import androidx.annotation.StringRes
+import androidx.annotation.StyleRes
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
 import androidx.core.content.withStyledAttributes
@@ -117,6 +123,13 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private val simpleTextPaint: SimpleTextPaint
         get() = textLayout.textPaint as SimpleTextPaint
+
+    private var drawables: Drawables? = null
+    private val requiredDrawables: Drawables
+        get() {
+            drawables = Drawables()
+            return requireNotNull(drawables)
+        }
 
     override var text: CharSequence?
         get() = textLayout.text
@@ -363,6 +376,29 @@ open class SbisTextView : View, SbisTextViewApi {
             if (textSize != simpleTextPaint.textSize) safeRequestLayout()
         }
 
+    override var compoundDrawablePadding: Int = 0
+        get() = drawables?.drawablePadding ?: 0
+        set(value) {
+            field = value
+            requiredDrawables.drawablePadding = value
+        }
+
+    override val compoundPaddingStart: Int
+        get() = paddingStart + (drawables?.paddingStart ?: 0)
+
+    override val compoundPaddingTop: Int
+        get() = paddingTop+ (drawables?.paddingTop ?: 0)
+
+    override val compoundPaddingEnd: Int
+        get() = paddingEnd + (drawables?.paddingEnd ?: 0)
+
+    override val compoundPaddingBottom: Int
+        get() = paddingBottom + (drawables?.paddingBottom ?: 0)
+    override val compoundDrawables: Array<Drawable?>
+        get() = drawables?.let {
+            arrayOf(it.drawableStart, it.drawableTop, it.drawableEnd, it.drawableBottom)
+        } ?: emptyArray()
+
     override val layout: Layout
         get() = textLayout.layout
 
@@ -498,6 +534,50 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getHighlightColor(): Int =
         textLayout.highlights?.highlightColor ?: -1
 
+    override fun setCompoundDrawables(
+        start: Drawable?,
+        top: Drawable?,
+        end: Drawable?,
+        bottom: Drawable?,
+        useIntrinsicBounds: Boolean
+    ) {
+        with(requiredDrawables) {
+            if (useIntrinsicBounds) {
+                fun Drawable.setIntrinsicBounds() {
+                    setBounds(0, 0, intrinsicWidth, intrinsicHeight)
+                }
+                start?.setIntrinsicBounds()
+                top?.setIntrinsicBounds()
+                end?.setIntrinsicBounds()
+                bottom?.setIntrinsicBounds()
+            }
+            drawableLeft = start
+            drawableTop = top
+            drawableRight = end
+            drawableBottom = bottom
+            onDrawablesChanged()
+        }
+    }
+
+    override fun setCompoundDrawables(
+        start: Int?,
+        top: Int?,
+        end: Int?,
+        bottom: Int?,
+        useIntrinsicBounds: Boolean
+    ) {
+        fun Int?.getDrawable(): Drawable? =
+            if (this != null && this != 0) ContextCompat.getDrawable(context, this) else null
+
+        setCompoundDrawables(
+            start = start.getDrawable(),
+            top = top.getDrawable(),
+            end = end.getDrawable(),
+            bottom = bottom.getDrawable(),
+            useIntrinsicBounds = useIntrinsicBounds
+        )
+    }
+
     override fun setTextAlignment(textAlignment: Int) {
         super.setTextAlignment(textAlignment)
         configure { alignment = getLayoutAlignment() }
@@ -558,11 +638,13 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun onRtlPropertiesChanged(layoutDirection: Int) {
         if (isInitialized != true) return
         textLayout.onRtlPropertiesChanged(layoutDirection, textDirection)
+        drawables?.onDrawablesChanged()
     }
 
     override fun drawableStateChanged() {
         super.drawableStateChanged()
         updateColors()
+        drawables?.updateDrawablesState()
     }
 
     override fun getBaseline(): Int {
@@ -942,6 +1024,85 @@ open class SbisTextView : View, SbisTextViewApi {
                 if (maxLines != DEFAULT_MAX_LINES) put(DESCRIPTION_MAX_LINES_KEY, maxLines)
                 if (minLines != DEFAULT_MIN_LINES) put(DESCRIPTION_MIN_LINES_KEY, minLines)
             }.toString()
+    }
+
+    /**
+     * Вспомогательная реализация для управления [compoundDrawables].
+     */
+    private inner class Drawables {
+        var drawableLeft: Drawable? = null
+            set(value) {
+                field?.callback = null
+                field = value
+                field?.callback = this@SbisTextView
+            }
+
+        var drawableTop: Drawable? = null
+            set(value) {
+                field?.callback = null
+                field = value
+                field?.callback = this@SbisTextView
+            }
+
+        var drawableRight: Drawable? = null
+            set(value) {
+                field?.callback = null
+                field = value
+                field?.callback = this@SbisTextView
+            }
+
+        var drawableBottom: Drawable? = null
+            set(value) {
+                field?.callback = null
+                field = value
+                field?.callback = this@SbisTextView
+            }
+
+        var drawableStart: Drawable? = null
+        var drawableEnd: Drawable? = null
+
+        var drawableSizeStart: Pair<Int, Int> = 0 to 0
+        var drawableSizeTop: Pair<Int, Int> = 0 to 0
+        var drawableSizeEnd: Pair<Int, Int> = 0 to 0
+        var drawableSizeBottom: Pair<Int, Int> = 0 to 0
+
+        var drawablePadding: Int = 0
+            set(value) {
+                field = value
+                onDrawablesChanged()
+            }
+
+        var paddingStart: Int = 0
+        var paddingTop: Int = 0
+        var paddingEnd: Int = 0
+        var paddingBottom: Int = 0
+
+        fun onDrawablesChanged() {
+            fun Drawable?.getDrawableSize(): Pair<Int, Int> =
+                this?.bounds?.let { it.width() to it.height() } ?: (0 to 0)
+
+            drawableStart = if (layoutDirection == LAYOUT_DIRECTION_LTR) drawableLeft else drawableRight
+            drawableEnd = if (layoutDirection == LAYOUT_DIRECTION_LTR) drawableRight else drawableLeft
+
+            drawableSizeStart = drawableStart.getDrawableSize()
+            drawableSizeTop = drawableStart.getDrawableSize()
+            drawableSizeEnd = drawableStart.getDrawableSize()
+            drawableSizeBottom = drawableStart.getDrawableSize()
+
+            paddingStart = drawablePadding + drawableSizeStart.first
+            paddingTop = drawablePadding + drawableSizeTop.second
+            paddingEnd = drawablePadding + drawableSizeEnd.first
+            paddingBottom = drawablePadding + drawableSizeBottom.second
+            safeRequestLayout()
+        }
+
+        fun updateDrawablesState() {
+            drawableLeft?. state = drawableState
+            drawableTop?.state = drawableState
+            drawableRight?.state = drawableState
+            drawableBottom?.state = drawableState
+            invalidate()
+        }
     }
 }
 
