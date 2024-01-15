@@ -32,6 +32,7 @@ import androidx.annotation.StyleRes
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
 import androidx.core.content.withStyledAttributes
+import androidx.core.graphics.withTranslation
 import androidx.core.text.clearSpans
 import androidx.core.view.isGone
 import com.example.simpletextview.BuildConfig
@@ -126,9 +127,8 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private var drawables: Drawables? = null
     private val requiredDrawables: Drawables
-        get() {
-            drawables = Drawables()
-            return requireNotNull(drawables)
+        get() = drawables ?: Drawables().also {
+            drawables = it
         }
 
     override var text: CharSequence?
@@ -213,7 +213,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value?.coerceAtLeast(0)
             configure {
-                maxWidth = field?.let { it - paddingStart - paddingEnd }
+                maxWidth = field?.let { it - compoundPaddingStart - compoundPaddingEnd }
                     ?.coerceAtLeast(0)
             }
         }
@@ -222,7 +222,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value?.coerceAtLeast(0) ?: 0
             configure {
-                minWidth = field?.let { it - paddingStart - paddingEnd }
+                minWidth = field?.let { it - compoundPaddingStart - compoundPaddingEnd }
                     ?.coerceAtLeast(0)
                     ?: 0
             }
@@ -232,7 +232,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value?.coerceAtLeast(0)
             configure {
-                maxHeight = field?.let { it - paddingTop - paddingBottom }
+                maxHeight = field?.let { it - compoundPaddingTop - compoundPaddingBottom }
                     ?.coerceAtLeast(0)
             }
         }
@@ -241,7 +241,7 @@ open class SbisTextView : View, SbisTextViewApi {
         set(value) {
             field = value?.coerceAtLeast(0) ?: 0
             configure {
-                minHeight = field?.let { it - paddingTop - paddingBottom }
+                minHeight = field?.let { it - compoundPaddingTop - compoundPaddingBottom }
                     ?.coerceAtLeast(0)
                     ?: 0
             }
@@ -669,18 +669,18 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun refreshTextRestrictions() {
         configure {
             minWidth = this@SbisTextView.minWidth
-                ?.let { it - paddingStart - paddingEnd }
+                ?.let { it - compoundPaddingStart - compoundPaddingEnd }
                 ?.coerceAtLeast(0)
                 ?: 0
             minHeight = this@SbisTextView.minHeight
-                ?.let { it - paddingTop - paddingBottom }
+                ?.let { it - compoundPaddingTop - compoundPaddingBottom }
                 ?.coerceAtLeast(0)
                 ?: 0
             maxWidth = this@SbisTextView.maxWidth
-                ?.let { it - paddingStart - paddingEnd }
+                ?.let { it - compoundPaddingStart - compoundPaddingEnd }
                 ?.coerceAtLeast(0)
             maxHeight = this@SbisTextView.maxHeight
-                ?.let { it - paddingTop - paddingBottom }
+                ?.let { it - compoundPaddingTop - compoundPaddingBottom }
                 ?.coerceAtLeast(0)
         }
     }
@@ -707,7 +707,7 @@ open class SbisTextView : View, SbisTextViewApi {
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
             getInternalSuggestedMinimumWidth(availableWidth)
         }
-        val horizontalPadding = paddingStart + paddingEnd
+        val horizontalPadding = compoundPaddingStart + compoundPaddingEnd
         textLayout.buildLayout(width - horizontalPadding)
         val height = measureDirection(heightMeasureSpec) {
             suggestedMinimumHeight
@@ -719,7 +719,7 @@ open class SbisTextView : View, SbisTextViewApi {
         getInternalSuggestedMinimumWidth()
 
     private fun getInternalSuggestedMinimumWidth(availableWidth: Int? = null): Int {
-        val horizontalPadding = paddingStart + paddingEnd
+        val horizontalPadding = compoundPaddingStart + compoundPaddingEnd
         val availableTextWidth = availableWidth?.let { it - horizontalPadding }
         return (horizontalPadding + textLayout.getPrecomputedWidth(availableTextWidth))
             .coerceAtLeast(super.getSuggestedMinimumWidth())
@@ -728,7 +728,8 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun getSuggestedMinimumHeight(): Int =
-        (paddingTop + paddingBottom + textLayout.height)
+        compoundPaddingTop.plus(compoundPaddingBottom)
+            .plus(textLayout.height.coerceAtLeast(drawables?.horizontalDrawablesMeasureHeight ?: 0))
             .coerceAtLeast(super.getSuggestedMinimumHeight())
             .coerceAtLeast(minHeight ?: 0)
             .coerceAtMost(maxHeight ?: Int.MAX_VALUE)
@@ -736,7 +737,7 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun configureLayoutForAutoSize(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         textLayout.isAutoSizeForAvailableSpace = MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY &&
                 MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY
-        val verticalPadding = paddingTop + paddingBottom
+        val verticalPadding = compoundPaddingTop + compoundPaddingBottom
         val availableLayoutHeight = measureDirection(heightMeasureSpec) {
             Int.MAX_VALUE.coerceAtMost(maxHeight ?: Int.MAX_VALUE)
         } - verticalPadding
@@ -755,11 +756,12 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     private fun internalLayout() {
-        textLayout.layout(paddingLeft, getLayoutTop())
+        textLayout.layout(compoundPaddingStart, getLayoutTop())
     }
 
     override fun onDraw(canvas: Canvas) {
         textLayout.draw(canvas)
+        drawables?.draw(canvas)
     }
 
     private fun obtainAttrs(
@@ -959,12 +961,12 @@ open class SbisTextView : View, SbisTextViewApi {
     private fun getLayoutTop(): Int =
         when (gravity and Gravity.VERTICAL_GRAVITY_MASK) {
             Gravity.BOTTOM -> {
-                measuredHeight - paddingBottom - textLayout.height
+                measuredHeight - compoundPaddingBottom - textLayout.height
             }
             Gravity.CENTER, Gravity.CENTER_VERTICAL -> {
-                paddingTop + (measuredHeight - paddingTop - paddingBottom - textLayout.height) / 2
+                compoundPaddingTop + (measuredHeight - compoundPaddingTop - compoundPaddingBottom - textLayout.height) / 2
             }
-            else -> paddingTop
+            else -> compoundPaddingTop
         }
 
     private fun configure(config: TextLayoutConfig): Boolean =
@@ -1066,6 +1068,10 @@ open class SbisTextView : View, SbisTextViewApi {
         var drawableSizeEnd: Pair<Int, Int> = 0 to 0
         var drawableSizeBottom: Pair<Int, Int> = 0 to 0
 
+        val horizontalDrawablesMeasureHeight: Int
+            get() = (drawableSizeStart.second)
+                .coerceAtLeast(drawableSizeEnd.second)
+
         var drawablePadding: Int = 0
             set(value) {
                 field = value
@@ -1085,9 +1091,9 @@ open class SbisTextView : View, SbisTextViewApi {
             drawableEnd = if (layoutDirection == LAYOUT_DIRECTION_LTR) drawableRight else drawableLeft
 
             drawableSizeStart = drawableStart.getDrawableSize()
-            drawableSizeTop = drawableStart.getDrawableSize()
-            drawableSizeEnd = drawableStart.getDrawableSize()
-            drawableSizeBottom = drawableStart.getDrawableSize()
+            drawableSizeTop = drawableTop.getDrawableSize()
+            drawableSizeEnd = drawableEnd.getDrawableSize()
+            drawableSizeBottom = drawableBottom.getDrawableSize()
 
             paddingStart = drawablePadding + drawableSizeStart.first
             paddingTop = drawablePadding + drawableSizeTop.second
@@ -1102,6 +1108,43 @@ open class SbisTextView : View, SbisTextViewApi {
             drawableRight?.state = drawableState
             drawableBottom?.state = drawableState
             invalidate()
+        }
+
+        fun draw(canvas: Canvas) {
+            val horizontalSpace = width - this@SbisTextView.compoundPaddingStart - this@SbisTextView.compoundPaddingEnd
+            val verticalSpace = height - this@SbisTextView.compoundPaddingTop - this@SbisTextView.compoundPaddingBottom
+            drawableStart?.also {
+                canvas.withTranslation(
+                    x = this@SbisTextView.paddingStart.toFloat(),
+                    y = this@SbisTextView.compoundPaddingTop + (verticalSpace - drawableSizeStart.second) / 2f
+                ) {
+                    it.draw(canvas)
+                }
+            }
+            drawableTop?.also {
+                canvas.withTranslation(
+                    x = this@SbisTextView.compoundPaddingStart + (horizontalSpace - drawableSizeTop.first) / 2f,
+                    y = this@SbisTextView.paddingTop.toFloat()
+                ) {
+                    it.draw(canvas)
+                }
+            }
+            drawableEnd?.also {
+                canvas.withTranslation(
+                    x = width - this@SbisTextView.paddingEnd.toFloat() - drawableSizeEnd.first,
+                    y = this@SbisTextView.compoundPaddingTop + (verticalSpace - drawableSizeEnd.second) / 2f
+                ) {
+                    it.draw(canvas)
+                }
+            }
+            drawableBottom?.also {
+                canvas.withTranslation(
+                    x = this@SbisTextView.compoundPaddingStart + (horizontalSpace - drawableSizeBottom.first) / 2f,
+                    y = height - this@SbisTextView.paddingBottom - drawableSizeBottom.second.toFloat()
+                ) {
+                    it.draw(canvas)
+                }
+            }
         }
     }
 }
