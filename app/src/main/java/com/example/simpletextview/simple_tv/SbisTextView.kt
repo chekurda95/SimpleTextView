@@ -385,13 +385,6 @@ open class SbisTextView : View, SbisTextViewApi {
             requiredDrawables.onDrawablesChanged()
         }
 
-    override var isWrappedCompoundDrawables: Boolean = false
-        set(value) {
-            val isChanged = field != value
-            field = value
-            if (isChanged) safeRequestLayout()
-        }
-
     override val compoundPaddingStart: Int
         get() = paddingStart + (drawables?.paddingStart ?: 0)
 
@@ -407,6 +400,13 @@ open class SbisTextView : View, SbisTextViewApi {
         get() = drawables?.let {
             arrayOf(it.drawableStart, it.drawableTop, it.drawableEnd, it.drawableBottom)
         } ?: emptyArray()
+
+    override var isWrappedCompoundDrawables: Boolean = false
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) safeRequestLayout()
+        }
 
     override val layout: Layout
         get() = textLayout.layout

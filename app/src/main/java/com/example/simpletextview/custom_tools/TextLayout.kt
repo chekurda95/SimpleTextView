@@ -372,6 +372,9 @@ class TextLayout private constructor(
             }
         }
 
+    /**
+     * Получить [RectF] границ внутреннего [layout].
+     */
     val innerLayoutRect: RectF
         get() = RectF(layoutRect)
 
