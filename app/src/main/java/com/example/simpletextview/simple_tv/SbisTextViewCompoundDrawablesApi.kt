@@ -17,6 +17,13 @@ interface SbisTextViewCompoundDrawablesApi {
     var compoundDrawablePadding: Int
 
     /**
+     * Установить признак необходимости оборачивать [compoundDrawables] вокруг однострочного текста,
+     * независимо от размеров view с учетом gravity.
+     * При необходимости можно будет поддержать и для многострочного, если будут такие кейсы использования.
+     */
+    var isWrappedCompoundDrawables: Boolean
+
+    /**
      * Вернуть paddingStart + [compoundDrawablePadding] для левого [Drawable], если таковой имеется.
      * @see setCompoundDrawables
      */

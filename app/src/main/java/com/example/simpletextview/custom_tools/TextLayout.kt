@@ -17,7 +17,6 @@ import android.text.TextPaint
 import android.text.TextUtils.TruncateAt
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.MetricAffectingSpan
-import android.text.style.TypefaceSpan
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.HapticFeedbackConstants.LONG_PRESS
@@ -243,7 +242,7 @@ class TextLayout private constructor(
             params = params,
             layout = _layout,
             isLayoutChanged = isLayoutChanged,
-            textPos = textRect.left to textRect.top,
+            textPos = layoutRect.left to layoutRect.top,
             refreshPrecomputedCount = refreshPrecomputedCount,
             fadingEdgeRule = fadingEdgeRule,
             isFadeEdgeVisible = isFadeEdgeVisible
@@ -334,9 +333,9 @@ class TextLayout private constructor(
     private val rect = Rect()
 
     /**
-     * Координаты границ текста [layout], формируются вместе с [rect].
+     * Координаты границ отрисовки [layout] (не текста внутри него), формируются вместе с [rect].
      */
-    private val textRect = RectF()
+    private val layoutRect = RectF()
 
     /**
      * Идентификатор разметки.
@@ -372,6 +371,9 @@ class TextLayout private constructor(
                 }
             }
         }
+
+    val innerLayoutRect: RectF
+        get() = RectF(layoutRect)
 
     /**
      * Краска текста разметки.
@@ -989,7 +991,7 @@ class TextLayout private constructor(
     fun layout(@Px left: Int, @Px top: Int) {
         rect.set(left, top, left + width, top + height)
         val topOffset = getTextTopOffset().toFloat()
-        textRect.set(
+        layoutRect.set(
             this.left + paddingStart.toFloat(),
             topOffset,
             this.right - paddingEnd.toFloat(),
@@ -1063,14 +1065,14 @@ class TextLayout private constructor(
         ) {
             inspectHelper?.draw(this)
             withClip(
-                left = textRect.left + translationX,
-                top = textRect.top + translationY,
-                right = textRect.right + translationX,
-                bottom = textRect.bottom + translationY
+                left = layoutRect.left + translationX,
+                top = layoutRect.top + translationY,
+                right = layoutRect.right + translationX,
+                bottom = layoutRect.bottom + translationY
             ) {
                 withTranslation(
-                    x = translationX + textRect.left,
-                    y = translationY + textRect.top
+                    x = translationX + layoutRect.left,
+                    y = translationY + layoutRect.top
                 ) {
                     layout.draw(this)
                 }
@@ -2168,7 +2170,7 @@ class TextLayout private constructor(
                 bottom.toFloat() - ONE_PX
             )
             borderPath.addRect(borderRectF, Path.Direction.CW)
-            textBackgroundPath.addRect(textRect, Path.Direction.CW)
+            textBackgroundPath.addRect(layoutRect, Path.Direction.CW)
             paddingPath.addRect(borderRectF, Path.Direction.CW)
             paddingPath.op(textBackgroundPath, Path.Op.DIFFERENCE)
         }
@@ -2205,7 +2207,7 @@ class TextLayout private constructor(
      * @see TextLayout.params
      * @see TextLayout._layout
      * @see TextLayout.isLayoutChanged
-     * @see TextLayout.textRect
+     * @see TextLayout.layoutRect
      * @see TextLayout.refreshPrecomputedCount
      * @see TextLayout.fadingEdgeRule
      * @see TextLayout.isFadeEdgeVisible

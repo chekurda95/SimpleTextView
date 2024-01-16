@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -384,6 +385,13 @@ open class SbisTextView : View, SbisTextViewApi {
             requiredDrawables.onDrawablesChanged()
         }
 
+    override var isWrappedCompoundDrawables: Boolean = false
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) safeRequestLayout()
+        }
+
     override val compoundPaddingStart: Int
         get() = paddingStart + (drawables?.paddingStart ?: 0)
 
@@ -730,7 +738,15 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun getSuggestedMinimumHeight(): Int =
         compoundPaddingTop.plus(compoundPaddingBottom)
-            .plus(textLayout.height.coerceAtLeast(drawables?.horizontalDrawablesMeasureHeight ?: 0))
+            .plus(
+                textLayout.height.coerceAtLeast(
+                    if (drawables == null || isWrappedCompoundDrawables) {
+                        0
+                    } else {
+                        drawables?.horizontalDrawablesMeasureHeight ?: 0
+                    }
+                )
+            )
             .coerceAtLeast(super.getSuggestedMinimumHeight())
             .coerceAtLeast(minHeight ?: 0)
             .coerceAtMost(maxHeight ?: Int.MAX_VALUE)
@@ -758,6 +774,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     private fun internalLayout() {
         textLayout.layout(compoundPaddingStart, getLayoutTop())
+        drawables?.onLayout()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -1097,6 +1114,7 @@ open class SbisTextView : View, SbisTextViewApi {
                 .coerceAtLeast(drawableSizeEnd.second)
 
         var drawablePadding: Int = 0
+        var textRect: RectF = RectF()
 
         var paddingStart: Int = 0
         var paddingTop: Int = 0
@@ -1130,37 +1148,72 @@ open class SbisTextView : View, SbisTextViewApi {
             invalidate()
         }
 
+        fun onLayout() {
+            if (isWrappedCompoundDrawables) {
+                val layout = textLayout.layout
+                val layoutRect = textLayout.innerLayoutRect
+                textRect.set(
+                    layoutRect.left + layout.getLineLeft(0),
+                    layoutRect.top + layout.getLineTop(0),
+                    layoutRect.left + layout.getLineRight(0),
+                    layoutRect.top + layout.getLineTop(1)
+                )
+            } else {
+                textRect.setEmpty()
+            }
+        }
+
         fun draw(canvas: Canvas) {
             val horizontalSpace = width - this@SbisTextView.compoundPaddingStart - this@SbisTextView.compoundPaddingEnd
             val verticalSpace = height - this@SbisTextView.compoundPaddingTop - this@SbisTextView.compoundPaddingBottom
             drawableStart?.also {
+                val xPosition = if (isWrappedCompoundDrawables) {
+                    textRect.left - paddingStart
+                } else {
+                    this@SbisTextView.paddingStart.toFloat()
+                }
                 canvas.withTranslation(
-                    x = this@SbisTextView.paddingStart.toFloat(),
+                    x = xPosition,
                     y = this@SbisTextView.compoundPaddingTop + (verticalSpace - drawableSizeStart.second) / 2f
                 ) {
                     it.draw(canvas)
                 }
             }
             drawableTop?.also {
+                val yPosition = if (isWrappedCompoundDrawables) {
+                    textRect.top - paddingTop
+                } else {
+                    this@SbisTextView.paddingTop.toFloat()
+                }
                 canvas.withTranslation(
                     x = this@SbisTextView.compoundPaddingStart + (horizontalSpace - drawableSizeTop.first) / 2f,
-                    y = this@SbisTextView.paddingTop.toFloat()
+                    y = yPosition
                 ) {
                     it.draw(canvas)
                 }
             }
             drawableEnd?.also {
+                val xPosition = if (isWrappedCompoundDrawables) {
+                    textRect.right + drawablePadding.toFloat()
+                } else {
+                    width - this@SbisTextView.paddingEnd.toFloat() - drawableSizeEnd.first
+                }
                 canvas.withTranslation(
-                    x = width - this@SbisTextView.paddingEnd.toFloat() - drawableSizeEnd.first,
+                    x = xPosition,
                     y = this@SbisTextView.compoundPaddingTop + (verticalSpace - drawableSizeEnd.second) / 2f
                 ) {
                     it.draw(canvas)
                 }
             }
             drawableBottom?.also {
+                val yPosition = if (isWrappedCompoundDrawables) {
+                    textRect.bottom + drawablePadding
+                } else {
+                    height - this@SbisTextView.paddingBottom - drawableSizeBottom.second.toFloat()
+                }
                 canvas.withTranslation(
                     x = this@SbisTextView.compoundPaddingStart + (horizontalSpace - drawableSizeBottom.first) / 2f,
-                    y = height - this@SbisTextView.paddingBottom - drawableSizeBottom.second.toFloat()
+                    y = yPosition
                 ) {
                     it.draw(canvas)
                 }
