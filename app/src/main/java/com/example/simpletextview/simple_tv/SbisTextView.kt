@@ -377,6 +377,13 @@ open class SbisTextView : View, SbisTextViewApi {
             if (textSize != simpleTextPaint.textSize) safeRequestLayout()
         }
 
+    override var textModifier: TextModifier? = null
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) safeRequestLayout()
+        }
+
     override var compoundDrawablePadding: Int = 0
         get() = drawables?.drawablePadding ?: 0
         set(value) {
@@ -713,6 +720,12 @@ open class SbisTextView : View, SbisTextViewApi {
         }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        textModifier?.apply(
+            this,
+            textLayout,
+            widthMeasureSpec,
+            heightMeasureSpec
+        )
         if (autoSizeTextType != AUTO_SIZE_TEXT_TYPE_NONE) {
             configureLayoutForAutoSize(widthMeasureSpec, heightMeasureSpec)
         }
@@ -1048,6 +1061,47 @@ open class SbisTextView : View, SbisTextViewApi {
             return descriptionProvider.getContentDescription()
         }
         return contentDescription
+    }
+
+    /**
+     * Модификатор текста.
+     * Позволяет модифицировать текст в [SbisTextView] на этапе [SbisTextView.onMeasure],
+     * чтобы избавиться от лишнего наследования в простых сценариях.
+     *
+     * Реализация вашего модификатора может иметь API по типу setData и хранить модель data,
+     * которая может быть в дальнейшем использована в методе [apply].
+     *
+     * Ширину вашего потенциального текста можно узнать с помощью метода [TextLayout.getDesiredWidth].
+     *
+     * Пример боевого сценария:
+     * если текст влезает в ширину - отображаем "Иванов Иван",
+     * если не влезает - "Иванов И.",
+     * если сокращение имени тоже не влезает - отображаем только фамилию, при необходимости на ней сработает сокращение.
+     *
+     * Важно:
+     * 1) Модификации применяемые к [TextLayout] не изменяют настройки [SbisTextView],
+     * поэтому аккуратнее относитесь к мобификациям параметров отличных от текста, его размера и цвета,
+     * тк они не будут синхронизироваться (например [SbisTextView.ellipsize]).
+     * 2) Сброс [TextModifier] не приведет к синхронизации измененных параметров [TextLayout].
+     */
+    interface TextModifier {
+
+        /**
+         * Применить изменения для [textLayout] компонента [view].
+         *
+         * Изменения будут применены на этапе [SbisTextView.onMeasure] до всех измерений самой вью,
+         * что позволяет при необходимости модифицировать текст в [textLayout]
+         * или другие его параметры с помощью метода [TextLayout.configure].
+         *
+         * @param widthMeasureSpec спецификация измерения ширины, которая пришла в [SbisTextView.onMeasure].
+         * @param heightMeasureSpec спецификация измерения высоты, которая пришла в [SbisTextView.onMeasure].
+         */
+        fun apply(
+            view: SbisTextView,
+            textLayout: TextLayout,
+            widthMeasureSpec: Int,
+            heightMeasureSpec: Int
+        )
     }
 
     private inner class ReleaseDescriptionProvider : DescriptionProvider {
