@@ -656,6 +656,9 @@ open class SbisTextView : View, SbisTextViewApi {
         drawables?.updateDrawablesState()
     }
 
+    override fun verifyDrawable(who: Drawable): Boolean =
+        drawables?.verifyDrawable(who) ?: super.verifyDrawable(who)
+
     override fun getBaseline(): Int {
         val layoutBaseLine = textLayout.safeLayoutBaseLine
         return if (layoutBaseLine != -1) {
@@ -1147,6 +1150,15 @@ open class SbisTextView : View, SbisTextViewApi {
             drawableBottom?.state = drawableState
             invalidate()
         }
+
+        fun verifyDrawable(who: Drawable): Boolean =
+            when (who) {
+                drawableLeft,
+                drawableTop,
+                drawableRight,
+                drawableBottom -> true
+                else -> false
+            }
 
         fun onLayout() {
             if (isWrappedCompoundDrawables) {
