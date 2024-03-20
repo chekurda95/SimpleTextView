@@ -26,6 +26,7 @@ import com.example.simpletextview.custom_tools.utils.TextHighlights
  */
 interface SbisTextViewApi :
     SbisTextViewCompoundDrawablesApi,
+    SbisTextViewShadowApi,
     SbisTextViewExtensionApi {
 
     /**

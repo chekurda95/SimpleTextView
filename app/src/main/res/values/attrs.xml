@@ -88,6 +88,15 @@
         <!-- Отступы между Drawable и текстом. -->
         <attr name="android:drawablePadding" format="dimension" />
 
+        <!-- Цвет тени текста. -->
+        <attr name="android:shadowColor" format="reference|color"/>
+        <!-- Радиус размытия тени текста. -->
+        <attr name="android:shadowRadius" format="float"/>
+        <!-- Смещение по x тени текста. -->
+        <attr name="android:shadowDx" format="float"/>
+        <!-- Смещение по y тени текста. -->
+        <attr name="android:shadowDy" format="float"/>
+
         <attr name="SbisTextView_autoSizeTextType" format="enum">
             <enum name="none" value="0"/>
             <enum name="uniform" value="1"/>

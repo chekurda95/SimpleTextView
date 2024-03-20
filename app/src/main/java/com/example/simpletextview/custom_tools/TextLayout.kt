@@ -49,6 +49,8 @@ import com.example.simpletextview.custom_tools.TextLayout.Companion.createTextLa
 import com.example.simpletextview.custom_tools.utils.layout.LayoutCreator
 import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory
 import com.example.simpletextview.custom_tools.utils.layout.LayoutFactory.Companion.RTL_SYMBOLS_CHECK_COUNT_LIMIT
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -336,6 +338,9 @@ class TextLayout private constructor(
      * Координаты границ отрисовки [layout] (не текста внутри него), формируются вместе с [rect].
      */
     private val layoutRect = RectF()
+    private val translationRect = RectF()
+    private val clipRect = RectF()
+    private var isSimpleDrawing = true
 
     /**
      * Идентификатор разметки.
@@ -587,16 +592,31 @@ class TextLayout private constructor(
      * Поворот текста вокруг центра на угол в градусах.
      */
     var rotation = 0f
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) updateCanvasRects()
+        }
 
     /**
      * Смещение отрисовки разметки по оси X.
      */
     var translationX: Float = 0f
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) updateCanvasRects()
+        }
 
     /**
      * Смещение отрисовки разметки по оси Y.
      */
     var translationY: Float = 0f
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) updateCanvasRects()
+        }
 
     /**
      * Признак необходимости показа затемнения текста при сокращении.
@@ -611,7 +631,10 @@ class TextLayout private constructor(
             val safeValue = value.coerceAtLeast(0)
             val isChanged = field != safeValue
             field = safeValue
-            if (isChanged) fadeShader = createFadeShader()
+            if (isChanged) {
+                updateCanvasRects()
+                fadeShader = createFadeShader()
+            }
         }
 
     /**
@@ -779,6 +802,34 @@ class TextLayout private constructor(
      */
     val highlights: TextHighlights?
         get() = params.highlights
+
+    /**
+     * Цвет тени текста.
+     * @see setShadowLayer
+     */
+    var shadowColor: Int = Color.BLACK
+        private set
+
+    /**
+     * Радиус размытия тени текста.
+     * @see setShadowLayer
+     */
+    var shadowRadius: Float = 0f
+        private set
+
+    /**
+     * Смещение по X тени текста.
+     * @see setShadowLayer
+     */
+    var shadowDx: Float = 0f
+        private set
+
+    /**
+     * Смещение по Y тени текста.
+     * @see setShadowLayer
+     */
+    var shadowDy: Float = 0f
+        private set
 
     /**
      * Получить ожидаемую ширину разметки для однострочного текста [text] без создания [StaticLayout].
@@ -1000,10 +1051,28 @@ class TextLayout private constructor(
             this.right - paddingEnd.toFloat(),
             topOffset + state.minHeightByLines - verticalPadding
         )
+        if (!isSimpleDrawing) updateCanvasRects()
+
         drawingLayout = _layout
 
         touchHelper.updateTouchRect()
         inspectHelper?.updatePositions()
+    }
+
+    private fun updateCanvasRects() {
+        isSimpleDrawing = false
+        translationRect.set(layoutRect)
+        translationRect.offset(translationX, translationY)
+        if (shadowRadius != 0f) {
+            clipRect.set(
+                translationRect.left + min(0f, shadowDx - shadowRadius),
+                translationRect.top + min(0f, shadowDy - shadowRadius),
+                translationRect.right + max(0f, shadowDx + shadowRadius),
+                translationRect.bottom + max(0f, shadowDy + shadowRadius)
+            )
+        } else {
+            clipRect.set(translationRect)
+        }
     }
 
     /**
@@ -1015,9 +1084,8 @@ class TextLayout private constructor(
     fun draw(canvas: Canvas) {
         drawingLayout?.let { layout ->
             if (!isVisible || layout.text.isEmpty()) return
-
-            if (isFadeEdgeVisible) {
-                drawFade(canvas) { drawLayout(it, layout) }
+            if (isSimpleDrawing) {
+                drawSimpleLayout(canvas, layout)
             } else {
                 drawLayout(canvas, layout)
             }
@@ -1043,21 +1111,21 @@ class TextLayout private constructor(
         }
     }
 
-    private fun drawFade(canvas: Canvas, function: (Canvas) -> Unit) {
-        val saveCount = canvas.saveLayer(0f, 0f, right.toFloat(), bottom.toFloat(), null)
-        val fadeLeft = right.toFloat() - fadeEdgeSize
-        function(canvas)
-        fadeMatrix.reset()
-        fadeMatrix.postTranslate(fadeLeft, 0f)
-        fadeShader?.value?.setLocalMatrix(fadeMatrix)
-        canvas.drawRect(
-            fadeLeft,
-            top.toFloat(),
-            right.toFloat(),
-            bottom.toFloat(),
-            fadePaint
-        )
-        canvas.restoreToCount(saveCount)
+    private fun drawSimpleLayout(canvas: Canvas, layout: Layout) {
+        inspectHelper?.draw(canvas)
+        canvas.withClip(
+            left = layoutRect.left,
+            top = layoutRect.top,
+            right = layoutRect.right,
+            bottom = layoutRect.bottom
+        ) {
+            withTranslation(
+                x = layoutRect.left,
+                y = layoutRect.top
+            ) {
+                layout.draw(this)
+            }
+        }
     }
 
     private fun drawLayout(canvas: Canvas, layout: Layout) {
@@ -1067,19 +1135,42 @@ class TextLayout private constructor(
             pivotY = top + rect.height() / 2f
         ) {
             inspectHelper?.draw(this)
-            withClip(
-                left = layoutRect.left + translationX,
-                top = layoutRect.top + translationY,
-                right = layoutRect.right + translationX,
-                bottom = layoutRect.bottom + translationY
-            ) {
-                withTranslation(
-                    x = translationX + layoutRect.left,
-                    y = translationY + layoutRect.top
+            withFade {
+                withClip(
+                    left = clipRect.left,
+                    top = clipRect.top,
+                    right = clipRect.right,
+                    bottom = clipRect.bottom
                 ) {
-                    layout.draw(this)
+                    withTranslation(
+                        x = translationRect.left,
+                        y = translationRect.top
+                    ) {
+                        layout.draw(this)
+                    }
                 }
             }
+        }
+    }
+
+    private fun Canvas.withFade(function: (Canvas) -> Unit) {
+        if (isFadeEdgeVisible) {
+            val saveCount = saveLayer(0f, 0f, right.toFloat(), bottom.toFloat(), null)
+            val fadeLeft = right.toFloat() - fadeEdgeSize
+            function(this)
+            fadeMatrix.reset()
+            fadeMatrix.postTranslate(fadeLeft, 0f)
+            fadeShader?.value?.setLocalMatrix(fadeMatrix)
+            drawRect(
+                fadeLeft,
+                top.toFloat(),
+                right.toFloat(),
+                bottom.toFloat(),
+                fadePaint
+            )
+            restoreToCount(saveCount)
+        } else {
+            function(this)
         }
     }
 
@@ -1198,6 +1289,19 @@ class TextLayout private constructor(
      */
     fun onTouchCanceled() {
         drawableStateHelper.checkPressedState(ACTION_CANCEL, true)
+    }
+
+    /**
+     * Установить для текста тень указанного радиуса размытия [radius] и цвета [color],
+     * а также смещения по [dx] и [dy] от положения текста.
+     */
+    fun setShadowLayer(radius: Float, dx: Float, dy: Float, color: Int) {
+        textPaint.setShadowLayer(radius, dx, dy, color)
+        shadowRadius = radius
+        shadowDx = dx
+        shadowDy = dy
+        shadowColor = color
+        updateCanvasRects()
     }
 
     private fun createLayoutInternal(precomputedData: PrecomputedLayoutData): Layout =
@@ -1445,7 +1549,9 @@ class TextLayout private constructor(
         @Px val top: Int = 0,
         @Px val end: Int = 0,
         @Px val bottom: Int = 0
-    )
+    ) {
+        constructor(@Px padding: Int) : this(padding, padding, padding, padding)
+    }
 
     /**
      * Настройки отступов для каждой строки [StaticLayout].
@@ -2173,7 +2279,7 @@ class TextLayout private constructor(
                 bottom.toFloat() - ONE_PX
             )
             borderPath.addRect(borderRectF, Path.Direction.CW)
-            textBackgroundPath.addRect(layoutRect, Path.Direction.CW)
+            textBackgroundPath.addRect(if (isSimpleDrawing) layoutRect else clipRect, Path.Direction.CW)
             paddingPath.addRect(borderRectF, Path.Direction.CW)
             paddingPath.op(textBackgroundPath, Path.Op.DIFFERENCE)
         }

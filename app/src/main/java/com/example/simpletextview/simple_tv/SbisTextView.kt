@@ -612,6 +612,19 @@ open class SbisTextView : View, SbisTextViewApi {
         )
     }
 
+    override fun setShadowLayer(radius: Float, dx: Float, dy: Float, color: Int) {
+        textLayout.setShadowLayer(radius, dx, dy, color)
+        invalidate()
+    }
+
+    override fun getShadowRadius(): Float = textLayout.shadowRadius
+
+    override fun getShadowDx(): Float = textLayout.shadowDx
+
+    override fun getShadowDy(): Float = textLayout.shadowDy
+
+    override fun getShadowColor(): Int = textLayout.shadowColor
+
     override fun setTextAlignment(textAlignment: Int) {
         super.setTextAlignment(textAlignment)
         configure { alignment = getLayoutAlignment() }
@@ -939,6 +952,20 @@ open class SbisTextView : View, SbisTextViewApi {
             ) and FADING_EDGE_HORIZONTAL == FADING_EDGE_HORIZONTAL
             val fadingEdgeLength = getDimensionPixelSize(R.styleable.SbisTextView_android_fadingEdgeLength, 0)
 
+            val shadowColor = getColor(R.styleable.SbisTextView_android_shadowColor, NO_RESOURCE)
+                .takeIf { it != NO_RESOURCE }
+                ?: getResourceId(R.styleable.SbisTextView_android_shadowColor, NO_RESOURCE)
+                    .takeIf { it != NO_RESOURCE }
+                    ?.let { ContextCompat.getColor(context, it) }
+            var shadowRadius = 0f
+            var shadowDx = 0f
+            var shadowDy = 0f
+            if (shadowColor != null) {
+                shadowRadius = getFloat(R.styleable.SbisTextView_android_shadowRadius, shadowRadius)
+                shadowDx = getFloat(R.styleable.SbisTextView_android_shadowDx, shadowDx)
+                shadowDy = getFloat(R.styleable.SbisTextView_android_shadowDy, shadowDy)
+            }
+
             val drawableStart = getDrawable(R.styleable.SbisTextView_android_drawableStart)
             val drawableTop = getDrawable(R.styleable.SbisTextView_android_drawableTop)
             val drawableEnd = getDrawable(R.styleable.SbisTextView_android_drawableEnd)
@@ -1018,6 +1045,9 @@ open class SbisTextView : View, SbisTextViewApi {
                     bottom = drawableBottom,
                     useIntrinsicBounds = true
                 )
+            }
+            if (shadowColor != null) {
+                setShadowLayer(shadowRadius, shadowDx, shadowDy, shadowColor)
             }
         }
     }
