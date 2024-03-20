@@ -3,7 +3,9 @@ package com.example.simpletextview.simple_tv
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.content.res.Resources
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -24,6 +26,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.annotation.AttrRes
+import androidx.annotation.CallSuper
 import androidx.annotation.ColorInt
 import androidx.annotation.IntDef
 import androidx.annotation.IntRange
@@ -54,8 +57,8 @@ import org.json.JSONObject
  *
  * Является оптимизированным аналогом [TextView] с сокращенным набором функционала [SbisTextViewApi]
  * и атрибутов [R.styleable.SbisTextView].
- * Компонент может расширяться, поэтому
- * если Вам не хватает какого-то API для вашей интеграции - обратитесь к ответственному за компонент.
+ * Компонент может расширяться, поэтому если Вам не хватает какого-то API для вашей интеграции -
+ * обратитесь к ответственному за компонент.
  * Приветствуются предложения по переносу в компонент полезных или частоиспользуемых расширений для [TextView],
  * а также заказы на реализацию нового API, которого не хватало в нативном компоненте из коробки.
  *
@@ -130,6 +133,15 @@ open class SbisTextView : View, SbisTextViewApi {
     private val requiredDrawables: Drawables
         get() = drawables ?: Drawables().also {
             drawables = it
+        }
+
+    private val measureResult: MeasureResult by lazy(::MeasureResult)
+
+    private var customExtension: Extension? = null
+        set(value) {
+            val isChanged = field != value
+            field = value
+            if (isChanged) safeRequestLayout()
         }
 
     override var text: CharSequence?
@@ -377,13 +389,6 @@ open class SbisTextView : View, SbisTextViewApi {
             if (textSize != simpleTextPaint.textSize) safeRequestLayout()
         }
 
-    override var textModifier: TextModifier? = null
-        set(value) {
-            val isChanged = field != value
-            field = value
-            if (isChanged) safeRequestLayout()
-        }
-
     override var compoundDrawablePadding: Int = 0
         get() = drawables?.drawablePadding ?: 0
         set(value) {
@@ -396,7 +401,7 @@ open class SbisTextView : View, SbisTextViewApi {
         get() = paddingStart + (drawables?.paddingStart ?: 0)
 
     override val compoundPaddingTop: Int
-        get() = paddingTop+ (drawables?.paddingTop ?: 0)
+        get() = paddingTop + (drawables?.paddingTop ?: 0)
 
     override val compoundPaddingEnd: Int
         get() = paddingEnd + (drawables?.paddingEnd ?: 0)
@@ -550,6 +555,19 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun getHighlightColor(): Int =
         textLayout.highlights?.highlightColor ?: -1
 
+    override fun setExtension(extension: Extension?) {
+        this.customExtension?.release()
+        extension?.attach(this, textLayout)
+        this.customExtension = extension
+    }
+
+    override fun <EXTENSION : Extension> requireExtension(creator: () -> EXTENSION): EXTENSION =
+        getExtension() ?: creator().also(::setExtension)
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <EXTENSION : Extension> getExtension(): EXTENSION? =
+        customExtension as? EXTENSION
+
     override fun setCompoundDrawables(
         start: Drawable?,
         top: Drawable?,
@@ -664,7 +682,9 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     override fun verifyDrawable(who: Drawable): Boolean =
-        drawables?.verifyDrawable(who) ?: super.verifyDrawable(who)
+        super.verifyDrawable(who) ||
+            (drawables?.verifyDrawable(who) ?: false) ||
+            (customExtension?.verifyDrawable(who) ?: false)
 
     override fun getBaseline(): Int {
         val layoutBaseLine = textLayout.safeLayoutBaseLine
@@ -720,15 +740,11 @@ open class SbisTextView : View, SbisTextViewApi {
         }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        textModifier?.apply(
-            this,
-            textLayout,
-            widthMeasureSpec,
-            heightMeasureSpec
-        )
         if (autoSizeTextType != AUTO_SIZE_TEXT_TYPE_NONE) {
             configureLayoutForAutoSize(widthMeasureSpec, heightMeasureSpec)
         }
+        if (measureByExtension(widthMeasureSpec, heightMeasureSpec)) return
+
         val width = measureDirection(widthMeasureSpec) { availableWidth ->
             getInternalSuggestedMinimumWidth(availableWidth)
         }
@@ -737,7 +753,25 @@ open class SbisTextView : View, SbisTextViewApi {
         val height = measureDirection(heightMeasureSpec) {
             suggestedMinimumHeight
         }
+
         setMeasuredDimension(width, height)
+    }
+
+    /**
+     * Измерить [SbisTextView] посредством установленного расшерения [setExtension].
+     * Вернет false, если расширение не оказывает влияения на измерение.
+     */
+    private fun measureByExtension(widthMeasureSpec: Int, heightMeasureSpec: Int): Boolean {
+        if (customExtension == null) return false
+
+        measureResult.clear()
+        customExtension?.onMeasure(widthMeasureSpec, heightMeasureSpec, measureResult)
+
+        if (!measureResult.isCleared) {
+            textLayout.buildLayout()
+            setMeasuredDimension(measureResult.width, measureResult.height)
+        }
+        return !measureResult.isCleared
     }
 
     override fun getSuggestedMinimumWidth(): Int =
@@ -785,6 +819,7 @@ open class SbisTextView : View, SbisTextViewApi {
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         internalLayout()
+        customExtension?.onLayout(changed)
         invalidate()
     }
 
@@ -796,6 +831,7 @@ open class SbisTextView : View, SbisTextViewApi {
     override fun onDraw(canvas: Canvas) {
         textLayout.draw(canvas)
         drawables?.draw(canvas)
+        customExtension?.onDraw(canvas)
     }
 
     private fun obtainAttrs(
@@ -1019,7 +1055,8 @@ open class SbisTextView : View, SbisTextViewApi {
                 measuredHeight - compoundPaddingBottom - textLayout.height
             }
             Gravity.CENTER, Gravity.CENTER_VERTICAL -> {
-                compoundPaddingTop + (measuredHeight - compoundPaddingTop - compoundPaddingBottom - textLayout.height) / 2
+                compoundPaddingTop +
+                    (measuredHeight - compoundPaddingTop - compoundPaddingBottom - textLayout.height) / 2
             }
             else -> compoundPaddingTop
         }
@@ -1064,44 +1101,160 @@ open class SbisTextView : View, SbisTextViewApi {
     }
 
     /**
-     * Модификатор текста.
-     * Позволяет модифицировать текст в [SbisTextView] на этапе [SbisTextView.onMeasure],
-     * чтобы избавиться от лишнего наследования в простых сценариях.
+     * Результат измерения [SbisTextView].
+     */
+    class MeasureResult internal constructor(
+        internal var width: Int = -1,
+        internal var height: Int = -1
+    ) {
+
+        internal var isCleared: Boolean = false
+
+        /**
+         * Установить результат измерения.
+         */
+        fun setMeasuredDimension(width: Int, height: Int) {
+            isCleared = false
+            this.width = width
+            this.height = height
+        }
+
+        /**
+         * Очистить результат.
+         */
+        fun clear() {
+            if (isCleared) return
+            isCleared = true
+            width = -1
+            height = -1
+        }
+    }
+
+    /**
+     * Базовая реализация расширения [SbisTextView].
      *
-     * Реализация вашего модификатора может иметь API по типу setData и хранить модель data,
-     * которая может быть в дальнейшем использована в методе [apply].
+     * Позволяет без наследования [SbisTextView] реализовать прикладную логику построения текста,
+     * например, чтобы не отказываться от общих компонентов из-за требований в прикладной логике.
+     *
+     * Расширение дает возможность сконфигурировать [TextLayout.configure] на этапе [SbisTextView.onMeasure]
+     * в методе [onMeasure] в зависимости от спеков измерения.
+     * Например, если в зависимости от ширины view должен быть разный текст или особая логика сокращения.
+     * Также в [onMeasure] Вы можете переопределить размер view, если установите свои значения в [MeasureResult].
+     *
+     * Реализация Вашего расширения может иметь собственное API по типу setData,
+     * установка которой может менять параметры [SbisTextView], запускать [onMeasure],
+     * где на этом этапе будут использоваться какие-то параметры из модели для построения текста.
+     *
+     * Расширения можно также гибко переиспользовать, как и view компоненты,
+     * например, компоненты кнопки или компонент счетчика можно полностью написать на расширениях,
+     * без реализации наследников.
      *
      * Ширину вашего потенциального текста можно узнать с помощью метода [TextLayout.getDesiredWidth].
      *
-     * Пример боевого сценария:
+     * Пример боевого сценария, который можно реализовать с помощью расширения в рамках одного measure-layout цикла:
      * если текст влезает в ширину - отображаем "Иванов Иван",
      * если не влезает - "Иванов И.",
-     * если сокращение имени тоже не влезает - отображаем только фамилию, при необходимости на ней сработает сокращение.
+     * если инициал имени тоже не влезает - отображаем только фамилию.
      *
-     * Важно:
-     * 1) Модификации применяемые к [TextLayout] не изменяют настройки [SbisTextView],
-     * поэтому аккуратнее относитесь к мобификациям параметров отличных от текста, его размера и цвета,
-     * тк они не будут синхронизироваться (например [SbisTextView.ellipsize]).
-     * 2) Сброс [TextModifier] не приведет к синхронизации измененных параметров [TextLayout].
+     * Важно: сброс [Extension] в [SbisTextView.setExtension]
+     * не приведет к автоматическому возвращению измененных параметров [TextLayout].
      */
-    interface TextModifier {
+    abstract class Extension {
+
+        private var _view: SbisTextView? = null
+        private var _textLayout: TextLayout? = null
 
         /**
-         * Применить изменения для [textLayout] компонента [view].
-         *
-         * Изменения будут применены на этапе [SbisTextView.onMeasure] до всех измерений самой вью,
-         * что позволяет при необходимости модифицировать текст в [textLayout]
-         * или другие его параметры с помощью метода [TextLayout.configure].
-         *
-         * @param widthMeasureSpec спецификация измерения ширины, которая пришла в [SbisTextView.onMeasure].
-         * @param heightMeasureSpec спецификация измерения высоты, которая пришла в [SbisTextView.onMeasure].
+         * Получить [SbisTextView], к которому присоединено текущее расширение.
          */
-        fun apply(
-            view: SbisTextView,
-            textLayout: TextLayout,
+        val view: SbisTextView
+            get() = requireNotNull(_view)
+
+        /**
+         * Получить [TextLayout] компонента [SbisTextView], к которому присоединено текущее расширение.
+         */
+        val textLayout: TextLayout
+            get() = requireNotNull(_textLayout)
+
+        /**
+         * Получить ресурсы.
+         */
+        val resources: Resources
+            get() = view.resources
+
+        /**
+         * Получить состояние присоединенности к [SbisTextView].
+         *
+         * Проверка может потребоваться,
+         * если в расширении будут присутствовать [View.post] или асинхронные операции.
+         * Расширение может быть в отсоединненом состоянии, если:
+         * 1) Его еще не установили в [SbisTextView.setExtension].
+         * 2) Его уже отсоединили, передав в [SbisTextView.setExtension] другое расширение или null.
+         * 3) Вы сами вызвали метод [release], чтобы очистить ссылки на [SbisTextView].
+         */
+        val isAttached: Boolean
+            get() = _view != null
+
+        /**
+         * Присоединить расширенеие к [SbisTextView].
+         *
+         * В этом методе можно реализовать логику настройки [SbisTextView],
+         * специфичной для данного расширения.
+         * Например, чтобы сразу при установке расширения настроить цвет текста, его размер и тд.
+         */
+        @CallSuper
+        open fun attach(view: SbisTextView, textLayout: TextLayout) {
+            _view = view
+            _textLayout = textLayout
+        }
+
+        /**
+         * Освободить ресурсы.
+         */
+        @CallSuper
+        open fun release() {
+            _view = null
+            _textLayout = null
+        }
+
+        /**
+         * Колбэк измерения [SbisTextView.onMeasure].
+         * Вызывается в начале измерения [SbisTextView], до построения и измерения [TextLayout].
+         *
+         * В этом методе вы можете изменить конфигурацию [textLayout] в зависимости от текущий спеков
+         * ширины и высоты [widthMeasureSpec]/[heightMeasureSpec],
+         * измерение [SbisTextView] и построение [TextLayout] произойдет автоматически по текущему конфигу [TextLayout].
+         *
+         * Также опционально Вы можете самостоятельно измерить и указать кастомную ширину и высоту [SbisTextView],
+         * установив эти значения в [MeasureResult.setMeasuredDimension].
+         */
+        open fun onMeasure(
             widthMeasureSpec: Int,
-            heightMeasureSpec: Int
-        )
+            heightMeasureSpec: Int,
+            measureResult: MeasureResult
+        ) = Unit
+
+        /**
+         * Колбэк размещения [SbisTextView.onLayout].
+         * Вызывается после оригинального размещения [TextLayout],
+         * поэтому при необходимости можете рассчитать и изменить его позицию самостоятельно.
+         */
+        open fun onLayout(isChanged: Boolean) = Unit
+
+        /**
+         * Колбэк рисования [SbisTextView.onDraw].
+         * Вызывается после оригинальной отрисовки [TextLayout],
+         * поэтому при необходимости можете нарисовать что-то дополнительно,
+         * например, свою [Drawable].
+         */
+        open fun onDraw(canvas: Canvas) = Unit
+
+        /**
+         * Верифицировать [Drawable] для реакции на колбэк [Drawable.setCallback].
+         * @see [SbisTextView.verifyDrawable]
+         */
+        open fun verifyDrawable(who: Drawable): Boolean =
+            false
     }
 
     private inner class ReleaseDescriptionProvider : DescriptionProvider {
@@ -1157,9 +1310,7 @@ open class SbisTextView : View, SbisTextViewApi {
             }
 
         var drawableStart: Drawable? = null
-            private set
         var drawableEnd: Drawable? = null
-            private set
 
         var drawableSizeStart: Pair<Int, Int> = 0 to 0
         var drawableSizeTop: Pair<Int, Int> = 0 to 0
@@ -1169,9 +1320,9 @@ open class SbisTextView : View, SbisTextViewApi {
         val horizontalDrawablesMeasureHeight: Int
             get() = (drawableSizeStart.second)
                 .coerceAtLeast(drawableSizeEnd.second)
+        var textRect: RectF = RectF()
 
         var drawablePadding: Int = 0
-        var textRect: RectF = RectF()
 
         var paddingStart: Int = 0
         var paddingTop: Int = 0

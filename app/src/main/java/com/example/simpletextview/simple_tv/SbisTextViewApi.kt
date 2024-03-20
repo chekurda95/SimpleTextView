@@ -14,7 +14,6 @@ import androidx.annotation.Px
 import androidx.annotation.StringRes
 import androidx.annotation.StyleRes
 import com.example.simpletextview.custom_tools.utils.TextHighlights
-import com.example.simpletextview.simple_tv.SbisTextView.TextModifier
 
 /**
  * API компонента для отображения текста [SbisTextView].
@@ -25,7 +24,9 @@ import com.example.simpletextview.simple_tv.SbisTextView.TextModifier
  *
  * @author vv.chekurda
  */
-interface SbisTextViewApi : SbisTextViewCompoundDrawablesApi {
+interface SbisTextViewApi :
+    SbisTextViewCompoundDrawablesApi,
+    SbisTextViewExtensionApi {
 
     /**
      * Установить текст.
@@ -244,12 +245,6 @@ interface SbisTextViewApi : SbisTextViewCompoundDrawablesApi {
      */
     @get:Px
     var minTextSize: Int
-
-    /**
-     * Установить модификатор текста.
-     * @see TextModifier
-     */
-    var textModifier: TextModifier?
 
     /**
      * Установить текст по строковому ресурсу.
