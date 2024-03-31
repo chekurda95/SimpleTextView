@@ -214,6 +214,15 @@ class TextLayout private constructor(
     private var _layout: Layout? = null
 
     /**
+     * Получить текстовую разметку.
+     * Имеет ленивую инициализацию в случае изменения параметров.
+     * @see requireLayout
+     */
+    @Deprecated("Смена именования API для прозрачности", ReplaceWith("requireLayout()"))
+    val layout: Layout
+        get() = requireLayout()
+
+    /**
      * Рисуемая текстовая разметка.
      * Устанавливается при вызове [layout], когда определяются координаты текста и самого [TextLayout].
      */
@@ -349,33 +358,15 @@ class TextLayout private constructor(
     var id: Int = ID_NULL
 
     /**
+     * Признак необходимости проверок на построение [BoringLayout].
+     */
+    var calculateBoring: Boolean = true
+
+    /**
      * Текст разметки.
      */
     val text: CharSequence
         get() = params.text
-
-    /**
-     * Получить текстовую разметку.
-     * Имеет ленивую инициализацию в случае изменения параметров.
-     */
-    val layout: Layout
-        get() { // TODO не очевидно, что метод может внутри что-то пересчитывать.
-            // TODO предлагаю дать доступ к _layout как optional и сделать отдельный метод типа requireLayout()
-            // TODO т.к не во всех случаях требуется пересчет, иногда нужно просто посмотреть что лежит в layout
-            val lastLayout = _layout
-            return if (!isLayoutChanged && lastLayout != null) {
-                lastLayout
-            } else {
-                val precomputedData = state.getLayoutPrecomputedData()
-                createLayoutInternal(precomputedData).also { layout ->
-                    isLayoutChanged = false
-                    _layout = layout
-                    if (layout is BoringLayout) boringLayout = layout
-
-                    updateFadeEdgeVisibility()
-                }
-            }
-        }
 
     /**
      * Получить [RectF] границ внутреннего [layout].
@@ -422,7 +413,7 @@ class TextLayout private constructor(
      * в иных случаях лишнего построения не произойдет.
      */
     val lineCount: Int
-        get() = layout.lineCount
+        get() = requireLayout().lineCount
 
     /**
      * Максимальная ширина разметки.
@@ -563,7 +554,7 @@ class TextLayout private constructor(
      */
     @get:Px
     val baseline: Int
-        get() = paddingTop + layout.getLineBaseline(0)
+        get() = paddingTop + requireLayout().getLineBaseline(0)
 
     /**
      * Базовая линия текстовой разметки, вызов которой не вызывает лишних построений [layout].
@@ -573,7 +564,7 @@ class TextLayout private constructor(
         get() = if (_layout == null) {
             -1
         } else {
-            paddingTop + layout.getLineBaseline(0)
+            paddingTop + requireLayout().getLineBaseline(0)
         }
 
     var layoutFactory: LayoutFactory = LayoutCreator
@@ -777,7 +768,7 @@ class TextLayout private constructor(
      * @see [Layout.getEllipsizedWidth]
      */
     val ellipsizedWidth: Int
-        get() = layout.ellipsizedWidth
+        get() = requireLayout().ellipsizedWidth
 
     /**
      * @see [TextLayoutParams.includeFontPad]
@@ -802,6 +793,33 @@ class TextLayout private constructor(
      */
     val highlights: TextHighlights?
         get() = params.highlights
+
+    /**
+     * Получить текущую текстовую разметку.
+     */
+    fun getCurrentLayout(): Layout? =
+        _layout
+
+    /**
+     * Получить тестовую разметку.
+     * В случае остутствия изменений возвращает текущую разметку.
+     * При наличии изменений построит и вернет новую.
+     */
+    fun requireLayout(): Layout {
+        val lastLayout = _layout
+        return if (!isLayoutChanged && lastLayout != null) {
+            lastLayout
+        } else {
+            val precomputedData = state.getLayoutPrecomputedData()
+            createLayoutInternal(precomputedData).also { layout ->
+                isLayoutChanged = false
+                _layout = layout
+                if (layout is BoringLayout) boringLayout = layout
+
+                updateFadeEdgeVisibility()
+            }
+        }
+    }
 
     /**
      * Цвет тени текста.
@@ -937,7 +955,7 @@ class TextLayout private constructor(
         config: TextLayoutConfig
     ): Boolean =
         if (!checkDiffs && isLayoutChanged) {
-            config.invoke(params)
+            applyConfig(config)
             isLayoutChanged = true
             true
         } else {
@@ -949,31 +967,27 @@ class TextLayout private constructor(
     /**
      * Настроить разметку.
      * @see configure
-     * Необходим для поддержки сценариев передачи TextLayoutConfig в качестве объекта, а не лямбды.
+     * Необходим для поддержки сценариев передачи [TextLayoutConfig] в качестве объекта, а не лямбды.
      */
     fun configure(config: TextLayoutConfig): Boolean =
         configure(checkDiffs = false, config)
 
     private fun checkDiff(config: TextLayoutConfig): Boolean {
+        val oldParams = params.copy()
         val oldTextSize = params.paint.textSize
         val oldLetterSpacing = params.paint.letterSpacing
         val oldTypeface = params.paint.typeface
+        applyConfig(config)
+        return !params.equals(oldParams, oldTextSize, oldLetterSpacing, oldTypeface)
+    }
+
+    private fun applyConfig(config: TextLayoutConfig) {
         val oldColor = params.paint.color
-        val oldParams = params.copy()
-
         config.invoke(params)
-
         if (oldColor != params.paint.color) {
             textColorAlpha = params.paint.alpha
             params.paint.alpha = (textColorAlpha * alpha).toInt()
         }
-
-        val isTextSizeChanged =
-            oldTextSize != params.paint.textSize ||
-                    oldLetterSpacing != params.paint.letterSpacing ||
-                    oldTypeface != params.paint.typeface
-
-        return isTextSizeChanged || oldParams != params // TODO унести весь код сравнения в кастомный equals TextLayoutParams
     }
 
     /**
@@ -993,7 +1007,7 @@ class TextLayout private constructor(
         } else {
             isLayoutChanged
         }
-        if (isVisible) layout
+        if (isVisible) requireLayout()
         return isChanged
     }
 
@@ -1011,7 +1025,7 @@ class TextLayout private constructor(
             params.layoutWidth = width
             isLayoutChanged = current != width
         }
-        if (isVisible) layout
+        if (isVisible) requireLayout()
     }
 
     /**
@@ -1261,15 +1275,15 @@ class TextLayout private constructor(
      */
     fun getEllipsisCount(line: Int): Int =
         if (maxLines == SINGLE_LINE || isSingleLine) {
-            val ellipsisStart = layout.getEllipsisStart(0)
+            val ellipsisStart = requireLayout().getEllipsisStart(0)
             val layoutTextLength = if (ellipsisStart > 0) {
                 ellipsisStart - 1
             } else {
-                layout.text.count()
+                requireLayout().text.count()
             }
             params.text.count() - layoutTextLength
         } else {
-            layout.getEllipsisCount(line)
+            requireLayout().getEllipsisCount(line)
         }
 
     /**
@@ -1441,7 +1455,7 @@ class TextLayout private constructor(
      * который полностью не вмещается в разметку.
      */
     private fun updateFadeEdgeVisibility() {
-        isFadeEdgeVisible = fadingEdgeRule && state.textWidth < layout.width
+        isFadeEdgeVisible = fadingEdgeRule && state.textWidth < requireLayout().width
     }
 
     private fun getTextDirectionHeuristic(): TextDirectionHeuristic {
@@ -1539,6 +1553,23 @@ class TextLayout private constructor(
                 color = paint.color
             }
         )
+
+        /**
+         * Сравнить текущие параметры с [other].
+         * Передача остальных параметров необходима для оптимизации,
+         * чтобы не копировать paint (дорого для производительности).
+         */
+        fun equals(
+            other: Any?,
+            otherTextSize: Float,
+            otherLetterSpacing: Float,
+            otherTypeface: Typeface?
+        ): Boolean {
+            if (paint.textSize != otherTextSize) return false
+            if (paint.letterSpacing != otherLetterSpacing) return false
+            if (paint.typeface != otherTypeface) return false
+            return this == other
+        }
     }
 
     /**
@@ -1731,14 +1762,14 @@ class TextLayout private constructor(
             } else {
                 when {
                     params.maxLines <= 0 || !isVisible -> 0
-                    params.isSingleLine && layout.lineCount > 0 -> layout.getLineTop(1)
-                    params.maxLines <= layout.lineCount -> layout.getLineTop(params.maxLines)
-                    params.minLines <= layout.lineCount -> layout.height
+                    params.isSingleLine && requireLayout().lineCount > 0 -> requireLayout().getLineTop(1)
+                    params.maxLines <= requireLayout().lineCount -> requireLayout().getLineTop(params.maxLines)
+                    params.minLines <= requireLayout().lineCount -> requireLayout().height
                     else -> {
                         val lineHeight = with(params) {
                             (paint.getFontMetricsInt(null) * spacingMulti + spacingAdd).roundToInt()
                         }
-                        layout.height + (params.minLines - layout.lineCount) * lineHeight
+                        requireLayout().height + (params.minLines - requireLayout().lineCount) * lineHeight
                     }
                 } + verticalPadding
             }.also {
@@ -1789,11 +1820,12 @@ class TextLayout private constructor(
                     !isVisible -> 0
                     params.layoutWidth != null -> params.layoutWidth!!
                     else -> {
-                        val layoutWidth = if (layout.lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
-                            layout.getLineWidth(0).roundToInt()
-                        } else {
-                            layout.width
-                        }
+                        val layoutWidth =
+                            if (requireLayout().lineCount == SINGLE_LINE && params.needHighWidthAccuracy) {
+                                requireLayout().getLineWidth(0).roundToInt()
+                            } else {
+                                requireLayout().width
+                            }
                         (layoutWidth + horizontalPadding)
                             .coerceAtMost(params.maxWidth ?: Int.MAX_VALUE)
                             .coerceAtLeast(params.minWidth)
@@ -1865,9 +1897,12 @@ class TextLayout private constructor(
                                         // Параметр layoutWidth не задавался, и вычисление ширины текста было без ограничений.
                                         (it.availableWidth == null && layoutWidth == null)
                                 )
-            } ?: refreshPrecomputedData(params.layoutWidth)
+            } ?: refreshPrecomputedData(params.layoutWidth, exactly = false)
 
-        private fun refreshPrecomputedData(availableWidth: Int? = null): PrecomputedLayoutData {
+        private fun refreshPrecomputedData(
+            availableWidth: Int? = null,
+            exactly: Boolean = false
+        ): PrecomputedLayoutData {
             val text = configuredText
             val availableTextWidth = (availableWidth ?: Int.MAX_VALUE) - horizontalPadding
             val limitedTextWidth = minOf(availableTextWidth, maxTextWidth)
@@ -1876,45 +1911,31 @@ class TextLayout private constructor(
             val byLayout = (text is Spannable &&
                     text.nextSpanTransition(0, spanLimit, MetricAffectingSpan::class.java) != spanLimit) ||
                     text.contains("\n")
+            val isBoring = checkBoring(text, byLayout)
 
-            var isBoring: BoringLayout.Metrics? = null
             var lineLastSymbolIndex: Int? = null
-
-            if (layoutFactory == LayoutCreator) { // TODO refactor (для прикладной фабрики не нужен расчет isBoring)
-                // TODO можно вынести расчет isBoring в лямбду и передавать эту лямбду в фабрику, если кому-то необходимо - вызовет по месту
-                // TODO лямбда может лежать внутри TextLayout и кешировать прошлые ее вызовы, отдавая результат сразу же при тех же значениях.
-                // TODO за счет этого из LayoutFactory можно будет убрать поля boring: BoringLayout.Metrics?, boringLayout: BoringLayout? и
-                // TODO вместо них добавить какой-нибудь интерфейс layoutDetector: LayoutDetector { fun isBoring(...) }
-                // TODO так же убрать логику checkBoring из класса LayoutCreator, использовать там layoutDetector
-                if (!byLayout &&
-                    !textDir.isRtl(text, 0, text.length.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT)) &&
-                    (params.isSingleLine || text.isEmpty() ||
-                            (text !is Spannable &&
-                                    (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
-                            ) || fadingEdgeRule
-                ) {
-                    isBoring = BoringLayout.isBoring(text, params.paint, cachedBoring)
-                }
-            }
             val precomputedTextWidth = when {
                 isBoring != null -> {
                     cachedBoring = isBoring
-                    maxOf(minOf(isBoring.width, limitedTextWidth), minTextWidth)
+                    isBoring.width.coerceAtMost(limitedTextWidth)
+                }
+                availableWidth != null && exactly && (params.maxLines > 1 && !params.isSingleLine) -> {
+                    limitedTextWidth
                 }
                 availableWidth != null || params.maxWidth != null -> {
-                    val (width, lastIndex) = params.paint.getTextWidth( // TODO не считать такие вещи для match_parent
+                    val (width, lastIndex) = params.paint.getTextWidth(
                         text = text,
                         maxWidth = limitedTextWidth,
                         byLayout = byLayout
                     )
                     lineLastSymbolIndex = lastIndex
-                    maxOf(width, minTextWidth)
+                    width
                 }
                 else -> {
                     val width = params.paint.getTextWidth(text = text, byLayout = byLayout)
-                    maxOf(minOf(width, limitedTextWidth), minTextWidth)
+                    width.coerceAtMost(limitedTextWidth)
                 }
-            }
+            }.coerceAtLeast(minTextWidth)
 
             return PrecomputedLayoutData(
                 availableWidth = availableWidth,
@@ -1928,6 +1949,20 @@ class TextLayout private constructor(
                 isPrecomputedActual = true
             }
         }
+
+        private fun checkBoring(text: CharSequence, byLayout: Boolean): BoringLayout.Metrics? =
+            when {
+                !calculateBoring -> null
+                !byLayout &&
+                        !textDir.isRtl(text, 0, text.length.coerceAtMost(RTL_SYMBOLS_CHECK_COUNT_LIMIT)) &&
+                        (params.isSingleLine || text.isEmpty() ||
+                                (text !is Spannable &&
+                                        (text.length <= BORING_LAYOUT_TEXT_LENGTH_LIMIT || params.maxLines == Int.MAX_VALUE))
+                                ) || fadingEdgeRule -> {
+                    BoringLayout.isBoring(text, params.paint, cachedBoring)
+                }
+                else -> null
+            }
     }
 
     /**
