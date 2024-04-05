@@ -1928,7 +1928,9 @@ class TextLayout private constructor(
                         maxWidth = limitedTextWidth,
                         byLayout = byLayout
                     )
-                    lineLastSymbolIndex = lastIndex
+                    if (ellipsize == TruncateAt.END || ellipsize == null) {
+                        lineLastSymbolIndex = lastIndex
+                    }
                     width
                 }
                 else -> {
